@@ -59,4 +59,4 @@ while True:
     except KeyboardInterrupt:
         red_light.duty_u16(0)
         green_light.duty_u16(0)
-        break                  
+        break
