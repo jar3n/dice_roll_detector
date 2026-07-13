@@ -1,6 +1,17 @@
 # use this for characterizing dice roll
 # vibrations
 
+# observations with july 13th 2026 prototype
+# vibration sensor detects every roll
+# the printing is still bogging the system
+# same as collision sensor
+# the sleep is necesary to not constantly
+# bog the system with printing
+
+# the led always changes when the dice impacts
+# the tray
+
+
 
 from machine import ADC, Pin, PWM
 from time import sleep
