@@ -45,6 +45,12 @@ builtin = Pin(LED_PIN, Pin.OUT)
 while True:
     try:
         #print("Collision Sensor Value", collision.value())
+        #sleep(0.1)
+        
+        # sleep makes system more responsive when printing
+        # but die collisions are missed a lot
+        # blink happens more reliably
+        
         builtin.value(collision.value())
     except KeyboardInterrupt:
         break
