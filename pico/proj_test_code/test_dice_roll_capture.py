@@ -19,7 +19,7 @@ NOISE_FLOOR_SAFETY = 500   # noise floor safety factor
 SETTLE_TIME = 150          # time for die to stop rolling
 PRINT_DELAY = 1000         # time between status updates
 DEBOUNCE_DELAY = 200       # min time between valid collision triggers
-VIBE_HIT_THRESHOLD = 3     # consecutive vibe readings above threshold needed to count as real motion
+EMA = 0.3 # exponential weighted average alpha
 
 # pin set up
 vibe = ADC(Pin(VIBE_PIN))
@@ -99,7 +99,8 @@ def main():
     red_light.value(1)
 
     prev_coll_val = 1
-    vibe_hit_count = 0
+    
+    vibe_val = vibe.read_u16()
 
     try:
         while True:
@@ -107,7 +108,9 @@ def main():
             coll_val = collision.value()
             yellow_light.value(coll_val)  # here to track switch state
 
-            vibe_val = vibe.read_u16()
+            vibe_val_now = vibe.read_u16()
+            # apply exponential moving average here
+            vibe_val = EMA* vibe_val_now + (1-EMA)*vibe_val
 
             green_light.value(die_settle_timer.active)
             red_light.value(not die_settle_timer.active)
@@ -116,29 +119,17 @@ def main():
             if (coll_val == 0 and prev_coll_val == 1
                     and not die_settle_timer.is_active()
                     and debounce_timer.elapsed()):
-                print("EVENT: collision edge triggered ROLLING")
                 debounce_timer.extend()
                 die_settle_timer.activate()
                 die_settle_timer.extend()
                 state = ROLLING
 
-            # vibration debounce: require consecutive hits above
-            # threshold before treating it as real motion, to
-            # filter out single-sample ADC noise spikes
-            if vibe_val >= vibe_threshold:
-                vibe_hit_count += 1
-            else:
-                vibe_hit_count = 0
-
-            if vibe_hit_count >= VIBE_HIT_THRESHOLD and die_settle_timer.is_active():
-                print(f"EVENT: vibe extend (val={vibe_val}, hits={vibe_hit_count})")
+            if vibe_val >= vibe_threshold and die_settle_timer.is_active():
                 die_settle_timer.extend()
-                vibe_hit_count = 0  # reset after acting on it
 
             if die_settle_timer.elapsed() and die_settle_timer.is_active():
                 # timer has elapsed
                 # request picture of the dice
-                print("EVENT: settle timer elapsed -> WAITING")
                 die_settle_timer.deactivate()
                 state = WAITING
 
