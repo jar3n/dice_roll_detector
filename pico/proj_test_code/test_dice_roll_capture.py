@@ -29,9 +29,10 @@ COLL_PIN = 19
 VIBE_PIN = 26
 GREEN_PIN = 13
 RED_PIN = 12
+YELLOW_PIN = 11
 
 # config constants
-NOISE_FLOOR_SAFETY = 10 # noise floor safety factor
+NOISE_FLOOR_SAFETY = 100 # noise floor safety factor
 SETTLE_TIME = 20 # time for die to stop rolling
 
 # pin set up
@@ -39,7 +40,7 @@ vibe = ADC(Pin(VIBE_PIN))
 collision = Pin(COLL_PIN, Pin.IN)
 red_light = Pin(RED_PIN, Pin.OUT)
 green_light = Pin(GREEN_PIN, Pin.OUT)
-
+yellow_light = Pin(YELLOW_PIN, Pin.OUT)
 
 # setup function
 # run once before loop like arduino
@@ -48,8 +49,8 @@ green_light = Pin(GREEN_PIN, Pin.OUT)
 def setup():
     readings = []
     
-    green_light.off()
-    red_light.off()
+    green_light.value(0)
+    red_light.value(1)
 
     print("Initiating noise floor measurements")
     noise_floor_timer = softTimer(5000)
@@ -81,15 +82,19 @@ def main():
         while True:
     
             coll_val = collision.value()
+            
+            yellow_light.value(coll_val) # here to track switch state
+            
             vibe_val = vibe.read_u16()
             
-            if coll_val == 0:
+            if coll_val == 0 and not settle_timer_running:
                 # switch closed
                 # start dice settle timer
                 die_settle_timer.extend()
                 settle_timer_running = True
-                red_light.off()
-                green_light.on()
+                red_light.value(0)
+                green_light.value(1)
+                print("detected dice roll start")
             
             if vibe_val >= vibe_threshold and settle_timer_running:
                 # if the settle timer is running
@@ -97,16 +102,18 @@ def main():
                 die_settle_timer.extend()
             
             
-            if die_settle_timer.elapsed():
+            elif die_settle_timer.elapsed() and settle_timer_running:
                 # timer has elapsed
                 # request picture of the dice
                 settle_timer_running = False
-                green_light.off()
-                red_light.on()
+                green_light.value(0)
+                red_light.value(1)
+                print("detected dice roll end")
             
     except KeyboardInterrupt:
-        green_light.off()
-        red_light.off()
+        green_light.value(0)
+        red_light.value(0)
+        yellow_light.value(0)
 
 main()
         
