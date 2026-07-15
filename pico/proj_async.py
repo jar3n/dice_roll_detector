@@ -7,6 +7,7 @@ import ujson
 import random
 import uasyncio as asyncio
 #import queue
+from timer import softTimer
 
 
 # set up peripherals
@@ -25,12 +26,9 @@ collision = Pin(COLL_PIN, Pin.IN)
 
 # other constants
 DEBOUNCE_DELAY = 200
-PRINT_DELAY = 1000 
-
-# queue for shareing data
-# though i might change to async events
-
-
+PRINT_DELAY = 1000
+NOISE_FLOOR_SAFETY = 700 # 500 plus a bit from observations
+SETTLE_TIME = 150
 
 
 # set up tasks for each peripheral
@@ -43,14 +41,14 @@ def all_off(r,y,g):
     g.off()
 
 
-async def control_traffic_light():
+async def control_traffic_light(coll_ev):
     
     all_off(red_light, yellow_light, green_light)
     # for starters do basic
     # blinking pattern
     while True:
         red_light.toggle()
-        await asyncio.sleep_ms(500)
+        await coll_ev.wait()
         red_light.toggle()
         
         yellow_light.toggle()
@@ -60,8 +58,6 @@ async def control_traffic_light():
         green_light.toggle()
         await asyncio.sleep_ms(500)
         green_light.toggle()
-
-        
 
 
 # collision sensor task code
@@ -84,21 +80,32 @@ async def read_collision_sensor(ev):
         
         await asyncio.sleep_ms(DEBOUNCE_DELAY)
     
-        
+# vibration sensor task code
+# returns on timeout
+# as long as timer is not extended
+#async def read_vibration_sensor(coll_event, vibe_event):
     
+#    while True:
+        
+        # wait for the collision sensor
+#        await coll_event.wait()
+        
+        
+         
 
 async def main():
     # intro hook to the
     # async tasks
     
-    
     # events
     coll_event = asyncio.Event()
+    #vibe_event = asyncio.Event()
     
     
     # add tasks here
-    asyncio.create_task(control_traffic_light())
+    asyncio.create_task(control_traffic_light(coll_event))
     asyncio.create_task(read_collision_sensor(coll_event))
+    #asyncio.create_task(read_vibration_sensor(coll_event, vibe_event))
     
     # main async loop
     while True:
