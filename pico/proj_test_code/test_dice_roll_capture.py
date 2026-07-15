@@ -1,10 +1,3 @@
-# code for project not using async
-# programming
-
-# set up is to use multithreading
-# have one thread for the vibration sensor
-# have the other for reporting and collision sensor
-
 # this is where the timer is incorperated
 # need to see how well the current prototype
 # detects when dice rolls initiate
@@ -13,10 +6,6 @@
 from machine import Pin, ADC, PWM
 from timer import softTimer
 import _thread
-import ujson
-import random
-
-
 
 # pin constants
 COLL_PIN = 19
@@ -52,7 +41,6 @@ state = NOISE_FLOOR
 
 # thread stuff
 stop_flag = False
-lock = _thread.allocate_lock()
 
 
 # setup function
@@ -80,17 +68,6 @@ def setup():
 
     return noise_floor_cap
 
-# json messages
-def req_dice_classify():
-    
-    # have id to confirm its a new request
-    id = random.randint(1,10)
-    
-    return {
-        "msg": "classify",
-        "id":id
-        }
-
 
 # threading function to print
 def printing_thread():
@@ -100,28 +77,12 @@ def printing_thread():
 
     print_timer = softTimer(PRINT_DELAY)
     print_timer.activate()
-    
-    prev_state = NOISE_FLOOR
-    
+
     while not stop_flag:
-        lock.acquire()
-        curr_state = state
-        lock.release()
-        
-        if prev_state != state:
-            if state == WAITING and prev_state == ROLLING:
-                # this is the end of the dice roll
-                # so now send the json message that the dice has
-                # been rolled
-                # and is ready to be captured
-                print(ujson.dumps(req_dice_classify()))
-            
-            
-            # update prev state
-            prev_state = state
-                
-                
-        
+        if print_timer.elapsed():
+            status = die_settle_timer.status()
+            pico_state = state
+            print(f"Die Settle Timer Status: {status}, Pico State: {pico_state}")
 
 
 def main():
