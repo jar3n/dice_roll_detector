@@ -136,9 +136,6 @@ class SerialDiceTray(threading.Thread):
                 else:
                     time.sleep(0.01)
 
-
-
-
 # testing this class below using
 # the code from the simple client
 
@@ -156,8 +153,20 @@ def parse_args():
 
     return parser.parse_args()
 
+def process_pico_data_helper(pico_data):
+    """Helper function to process the data"""
 
-if __name__ == "__main__":
+    try:
+        if pico_data['msg'] == "classify":
+            return True
+    except KeyError:
+        print("Got malformed message")
+
+    return False
+
+
+def main():
+    """Example and test run with the threaded SeralDiceTray Class"""
     complete_msg = {
         "msg": "complete"
     }
@@ -168,9 +177,10 @@ if __name__ == "__main__":
 
     pico_thread.initiate_background_process()
 
-    WAITING = False
-    WAITING_START = 0
-    WAITING_DURATION = 120 # 2 minutes
+    waiting = False
+    waiting_start = 0
+    waiting_duration = 120 # 2 minutes
+
     try:
         while True:
             if not pico_thread.connected:
@@ -178,33 +188,41 @@ if __name__ == "__main__":
                 time.sleep(0.5)
                 continue
 
-            pico_data = pico_thread.report()
-            if pico_data is not None:
-                print("Detected incoming data")
-                # simple interaction to manually
-                # send completion message
 
-                try:
-                    if pico_data['msg'] == "classify":
-                        # decide to wait for two seconds or send the message
-                        while True:
-                            if WAITING:
-                                # check the time elapsed
-                                if (datetime.now() - WAITING_START).seconds >= WAITING_DURATION:
-                                    WAITING = False
-                                else:
-                                    time.sleep(0.5)
-                            else:
-                                resp = input("Wait to send complete message? (y or n)")
-                                if resp == "y":
-                                    WAITING = True
-                                    WAITING_START = datetime.now()
-                                else:
-                                    pico_thread.write(complete_msg)
-                                    break
-                except KeyError:
-                    print("Recieved malformed message, ignoring and waiting for next")
-                    continue
+            pico_data = pico_thread.report()
+            if pico_data is None:
+                time.sleep(0.5)
+                continue
+
+            print("Detected incoming data")
+            # simple interaction to manually
+            # send completion message
+
+            is_classify_request = process_pico_data_helper(pico_data)
+
+            if not is_classify_request:
+                continue
+
+            while True:
+                if waiting:
+                    # check the time elapsed
+                    if (datetime.now() - waiting_start).seconds >= waiting_duration:
+                        waiting = False
+                    else:
+                        time.sleep(0.5)
+                else:
+                    resp = input("Wait to send complete message? (y or n)")
+                    if resp == "y":
+                        waiting = True
+                        waiting_start = datetime.now()
+                    else:
+                        pico_thread.write(complete_msg)
+                        break
+
     except KeyboardInterrupt:
         pico_thread.stop()
         pico_thread.join(timeout=1)
+
+
+if __name__ == "__main__":
+    main()
