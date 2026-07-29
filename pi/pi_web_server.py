@@ -16,6 +16,7 @@
 
 from flask import Flask
 from flask import render_template
+from flask import redirect
 
 
 app = Flask(__name__)
@@ -23,22 +24,40 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    """The main index page route"""
-    return "Index Page"
+    """The main index page reroute to the status page"""
+    return redirect("/status")
 
-@app.route("/hello")
-def hello():
-    """an example hello page to a different route"""
-    return "Hello Page"
-
-@app.route("/jinja")
-@app.route("/jinja/<name>")
-def jinja_temp_test(name=None):
-    """trying out the jinja
-       simple template
-
-       the name shows how to pass data to the page
+@app.route("/status")
+@app.route("/status/<state>")
+def status(state=None):
+    """This is the main page
+        it displays the status
+        of the pi
     
     """
-    return render_template("hello.html", person=name)
+    return render_template("status.html", state=state)
+
+
+@app.route("/set_status/<value>")
+def set_status(value=None):
+    """Set the status of the page
+
+    Args:
+        value (string, optional): the state to 
+        set the page to. Defaults to None.
+    """
+    return redirect(f"/status/{value}")
+
+# @app.route("/submit_correction")
+# def button_click():
+#     """trying out a url the button click
+#     sends the form data to 
+
+#     idk what im doing now
+    
+#     """
+
+#     # need to return something
+#     # i guess just redirect back?
+#     return redirect("/status/Correcting")
 

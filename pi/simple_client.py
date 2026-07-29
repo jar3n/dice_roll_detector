@@ -7,11 +7,12 @@
 
 """
 
+import time
 import argparse
 import json
 import sys
 import serial
-import time
+
 
 
 def parse_args():
