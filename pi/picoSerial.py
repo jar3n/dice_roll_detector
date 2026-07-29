@@ -1,5 +1,4 @@
 """
-
     Class that runs in a thread
     this class will do the following
 
@@ -34,8 +33,10 @@ class SerialDiceTray(threading.Thread):
         self.serial_settings = [dev, baud, timeout]
         self.serial = None
         self.lock = threading.Lock()
-        self.out_going_data = None
-        self.incoming_data = None
+        self.data = {
+            "in":None,
+            "out":None
+        }
         self.running = False
 
     def initiate_background_process(self):
@@ -43,7 +44,7 @@ class SerialDiceTray(threading.Thread):
         self.daemon = True
         self.running = True
         self.start()
-        
+
 
     def connect(self):
         """Attempt to connect to the serial device"""
@@ -62,9 +63,9 @@ class SerialDiceTray(threading.Thread):
         """Report data if there is any then clear it"""
 
         with self.lock:
-            data = self.incoming_data
-            if self.incoming_data is not None:
-                self.incoming_data = None
+            data = self.data['in']
+            if self.data['in'] is not None:
+                self.data['in'] = None
 
         return data
 
@@ -83,7 +84,7 @@ class SerialDiceTray(threading.Thread):
             # and return None
             self.serial.flushInput()
             with self.lock:
-                self.incoming_data = None
+                self.data['in'] = None
             return
 
         try:
@@ -93,11 +94,11 @@ class SerialDiceTray(threading.Thread):
             # json so its a bad message
             self.serial.flushInput()
             with self.lock:
-                self.incoming_data = None
+                self.data['in'] = None
             return
 
         with self.lock:
-            self.incoming_data = data
+            self.data['in'] = data
 
     def write(self, msg):
         """Write a message over serial
@@ -108,7 +109,7 @@ class SerialDiceTray(threading.Thread):
         data = json.dumps(msg)
 
         with self.lock:
-            self.out_going_data = data
+            self.data['out'] = data
 
     def stop(self):
         """stop the thread from running"""
@@ -128,10 +129,10 @@ class SerialDiceTray(threading.Thread):
             else:
                 if self.serial.in_waiting > 0:
                     self.read()
-                elif self.out_going_data is not None:
-                    self.serial.write(self.out_going_data.encode("utf-8"))
+                elif self.data['out'] is not None:
+                    self.serial.write(self.data['out'].encode("utf-8"))
                     with self.lock:
-                        self.out_going_data = None
+                        self.data['out'] = None
                 else:
                     time.sleep(0.01)
 
@@ -177,11 +178,11 @@ if __name__ == "__main__":
                 time.sleep(0.5)
                 continue
 
-            if pico_thread.incoming_data is not None:
+            pico_data = pico_thread.report()
+            if pico_data is not None:
                 print("Detected incoming data")
                 # simple interaction to manually
                 # send completion message
-                pico_data = pico_thread.report()
 
                 try:
                     if pico_data['msg'] == "classify":
