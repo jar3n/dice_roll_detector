@@ -49,15 +49,20 @@ class SerialDiceTray(threading.Thread):
     def connect(self):
         """Attempt to connect to the serial device"""
         try:
-            self.serial = serial.Serial(*self.serial_settings)
+            port = self.serial_settings[0]
+            baud = self.serial_settings[1]
+            timeout = self.serial_settings[2]
+            self.serial = serial.Serial(port, baud, timeout=timeout)
         except serial.SerialException:
             self.serial = None
 
         with self.lock:
             if self.serial is not None:
                 self.connected = True
+                print("Connected to device")
             else:
                 self.connected = False
+        
 
     def report(self):
         """Report data if there is any then clear it"""
@@ -106,7 +111,7 @@ class SerialDiceTray(threading.Thread):
            self.out_going_data
 
         """
-        data = json.dumps(msg)
+        data = (json.dumps(msg) + "\n")
 
         with self.lock:
             self.data['out'] = data
@@ -122,19 +127,24 @@ class SerialDiceTray(threading.Thread):
 
 
         while self.running:
-            if not self.connected:
-                print("Attempting to connect to device")
-                self.connect()
-                time.sleep(0.5)
-            else:
-                if self.serial.in_waiting > 0:
-                    self.read()
-                elif self.data['out'] is not None:
-                    self.serial.write(self.data['out'].encode("utf-8"))
-                    with self.lock:
-                        self.data['out'] = None
+            try:
+                if not self.connected:
+                    print("Attempting to connect to device")
+                    self.connect()
+                    time.sleep(0.5)
                 else:
-                    time.sleep(0.01)
+                    if self.serial.in_waiting > 0:
+                        self.read()
+                    elif self.data['out'] is not None:
+                        self.serial.write(self.data['out'].encode("utf-8"))
+                        with self.lock:
+                            self.data['out'] = None
+                    else:
+                        time.sleep(0.01)
+            except OSError:
+                # device disconnected
+                # revert to connecting
+                self.connected = False
 
 # testing this class below using
 # the code from the simple client
@@ -195,6 +205,7 @@ def main():
                 continue
 
             print("Detected incoming data")
+            print(f"Incoming data is : {pico_data}")
             # simple interaction to manually
             # send completion message
 

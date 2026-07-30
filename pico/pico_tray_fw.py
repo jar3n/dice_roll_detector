@@ -26,15 +26,26 @@ import select
 GREEN_PIN = 13
 RED_PIN = 12
 YELLOW_PIN = 11
-COLL_PIN = 19
+
+#COLL_PIN = 19
 VIBE_PIN = 26
+
+SWITCH_PIN_1 = 6
+SWITCH_PIN_2 = 7
+SWITCH_PIN_3 = 8
+SWITCH_PIN_4 = 9
+
 
 red_light = Pin(RED_PIN, Pin.OUT)
 yellow_light = Pin(YELLOW_PIN, Pin.OUT)
 green_light = Pin(GREEN_PIN, Pin.OUT)
 
-collision = Pin(COLL_PIN, Pin.IN)
+#collision = Pin(COLL_PIN, Pin.IN)
 vibe = ADC(Pin(VIBE_PIN))
+switch_1 = Pin(SWITCH_PIN_1, Pin.IN, Pin.PULL_DOWN)
+switch_2 = Pin(SWITCH_PIN_2, Pin.IN, Pin.PULL_DOWN)
+switch_3 = Pin(SWITCH_PIN_3, Pin.IN, Pin.PULL_DOWN)
+switch_4 = Pin(SWITCH_PIN_4, Pin.IN, Pin.PULL_DOWN)
 
 
 # other constants
@@ -49,6 +60,11 @@ WAITING = 2
 
 state = {
     "current": POLLING
+    }
+
+trigger = {
+    "vibration": False,
+    "collision": False
     }
 
 def all_off(r,y,g):
@@ -89,35 +105,31 @@ async def control_traffic_light():
             switch_on(red_light, yellow_light, green_light, "g")
         
         await asyncio.sleep_ms(40)
-        
-# task to poll the collision sensor
-# and change the state when
-# a dice hits the tray
-async def poll_collision_sensor():
-    prev_val = collision.value()
+
+# task to poll a switch
+# sets the trigger for collision
+# but does not change the state
+async def poll_key_switch(switch):
+    prev_val = switch.value()
     
     while True:
-        
         if state["current"] != POLLING:
-            # wait to return to sensor polling state
-            # before polling collision sensor
+            # wait to poll in polling state
             await asyncio.sleep_ms(40)
         else:
-            # poll for a dice impact
-            while prev_val == collision.value():
-                await  asyncio.sleep_ms(40)
-                
-            current = collision.value()
-        
-            if prev_val == 1 and current== 0:
-                #detected falling edge so
-                # change state to ROLLING
-                state["current"] = ROLLING
-                
+            while prev_val == switch.value():
+                await asyncio.sleep_ms(40)
+            
+            current = switch.value()
+            
+            if prev_val == 1 and current == 0:
+                trigger["collision"] = True
             
             prev_val = current
             
             await asyncio.sleep_ms(DEBOUNCE_DELAY)
+
+            
     
 
 # task to poll the vibration sensor
@@ -128,14 +140,30 @@ async def poll_vibration_sensor():
     
     while True:
         
-        if state["current"] != ROLLING:
-            # wait for initial impact
-            # to poll for vibrations
-            await asyncio.sleep_ms(40)
+        vibe_val = vibe.read_u16()
         
-        else:
+        if state["current"] == POLLING:
+            # in the polling state poll
+            # for vibrations greater than
+            # threshold
+            
+            while vibe_val <= vibe_threshold:
+                
+                vibe_val_now = vibe.read_u16()
+                vibe_val = vibe_val_now*EMA + (1-EMA)*vibe_val
+                
+                await asyncio.sleep_ms(4)
+            
+            # if this code is reached
+            # vibrations have exceeded the threshold
+            # this means a die has been rolled
+            state["current"] = ROLLING
+            trigger["vibration"] = True
+            
+        
+        elif state["current"] == ROLLING:
             # get initial sample
-            vibe_val = vibe.read_u16()
+            
             
             while vibe_val >= vibe_threshold:
                 
@@ -153,9 +181,12 @@ async def poll_vibration_sensor():
             state["current"] = WAITING
             
             # safety yeild at end of this
-            # when returning to the task
-            # it should yield from above
             await  asyncio.sleep_ms(4)
+        else:
+            # wait for either the
+            # polling or rolling state
+            # to do things
+            await asyncio.sleep_ms(40)
 
 
 # helper task
@@ -186,7 +217,8 @@ async def async_readline():
 async def comm_with_client():
     
     classify_request = {
-                    "msg": "classify"
+                    "msg": "classify",
+                    "triggers": trigger
                 }
     
     request_sent = False
@@ -197,7 +229,6 @@ async def comm_with_client():
             await asyncio.sleep_ms(40)
             continue
     
-        
         # send the request
         if not request_sent:
             print(ujson.dumps(classify_request))
@@ -231,9 +262,12 @@ async def main():
     
     tasks = [
         asyncio.create_task(control_traffic_light()),
-        asyncio.create_task(poll_collision_sensor()),
         asyncio.create_task(poll_vibration_sensor()),
-        asyncio.create_task(comm_with_client())
+        asyncio.create_task(comm_with_client()),
+        asyncio.create_task(poll_key_switch(switch_1)),
+        asyncio.create_task(poll_key_switch(switch_2)),
+        asyncio.create_task(poll_key_switch(switch_3)),
+        asyncio.create_task(poll_key_switch(switch_4))
         ]
         
     await asyncio.gather(*tasks)
