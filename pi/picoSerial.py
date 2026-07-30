@@ -111,7 +111,9 @@ class SerialDiceTray(threading.Thread):
            self.out_going_data
 
         """
-        data = (json.dumps(msg) + "\n")
+        # pico firmware looks for
+        # newline as end of message character
+        data = json.dumps(msg) + "\n"
 
         with self.lock:
             self.data['out'] = data
