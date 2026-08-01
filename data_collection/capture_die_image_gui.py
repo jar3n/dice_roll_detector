@@ -7,18 +7,21 @@ classifier on a Raspberry Pi. Shows a real-time camera feed and lets you pick
 die number, tray position, orientation, and side-up with buttons, then saves
 a full-resolution image with one click.
 
+Uses OpenCV (V4L2) to talk to the camera, so it works with USB/UVC webcams
+(this is the right tool for a USB webcam -- picamera2/libcamera targets the
+Pi's own CSI camera module and only has limited, single-stream UVC support).
+
 Filename format (matches capture_die_image.py / the tracker spreadsheet):
     die<DIE>_pos<POSITION>_rot<ORIENTATION>_side<SIDE>_<TIMESTAMP>.jpg
 
-Requires (Raspberry Pi OS, Bookworm or later):
-    sudo apt install -y python3-picamera2 python3-pil python3-tk
-
-Run with a monitor/touchscreen attached, or over VNC (not plain SSH X-forwarding
--- the preview uses picamera2's array capture, which works fine either way).
+Requires:
+    sudo apt install -y python3-opencv python3-pil python3-pil.imagetk python3-tk
+    (or: pip install opencv-python --break-system-packages)
 
 Usage:
     python3 dice_capture_gui.py
-    python3 dice_capture_gui.py --outdir ./data --die 2
+    python3 dice_capture_gui.py --outdir ./data --die 2 --camera-index 0
+    python3 dice_capture_gui.py --list-cameras
 """
 
 import argparse
@@ -41,7 +44,9 @@ POSITION_GRID = {
 }
 
 PREVIEW_SIZE = (640, 480)
-CAPTURE_SIZE = (1640, 1232)
+# Requested capture resolution -- OpenCV will fall back to the webcam's
+# closest supported resolution if this exact size isn't available.
+CAPTURE_SIZE = (1920, 1080)
 PREVIEW_FPS_MS = 66  # ~15 fps, easy on the Pi's CPU
 
 ACCENT = "#305496"
@@ -56,11 +61,32 @@ def parse_args():
                     help="Directory to save images into (default: ./captures)")
     p.add_argument("--die", type=int, default=1, choices=DICE,
                     help="Initial die number selection (default: 1)")
+    p.add_argument("--camera-index", type=int, default=0,
+                    help="OpenCV camera index, e.g. matches /dev/video0 (default: 0)")
+    p.add_argument("--list-cameras", action="store_true",
+                    help="Probe /dev/video0.. and print which indices open successfully, then exit")
     return p.parse_args()
 
 
+def list_cameras(max_index=10):
+    import cv2
+    print("Probing camera indices...")
+    found = []
+    for i in range(max_index):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            ok, _ = cap.read()
+            print(f"  index {i}: {'opens and reads a frame' if ok else 'opens but no frame'}")
+            found.append(i)
+        cap.release()
+    if not found:
+        print("  No camera indices responded. Check `ls /dev/video*` and cable/USB connection.")
+    else:
+        print(f"Working indices: {found}. Use --camera-index <N> to pick one.")
+
+
 class DiceCaptureApp:
-    def __init__(self, root: tk.Tk, outdir: Path, initial_die: int):
+    def __init__(self, root: tk.Tk, outdir: Path, initial_die: int, camera_index: int):
         self.root = root
         self.outdir = outdir
         self.outdir.mkdir(parents=True, exist_ok=True)
@@ -76,10 +102,10 @@ class DiceCaptureApp:
         self.side_var = tk.IntVar(value=1)
         self.session_count = 0
 
-        self.picam2 = None
+        self.cap = None
         self.photo_image = None  # keep a reference or Tkinter will garbage-collect it
 
-        self._init_camera()
+        self._init_camera(camera_index)
         self._build_ui()
         self._update_preview()
 
@@ -88,30 +114,42 @@ class DiceCaptureApp:
     # ---------------------------------------------------------------
     # Camera setup
     # ---------------------------------------------------------------
-    def _init_camera(self):
+    def _init_camera(self, camera_index: int):
         try:
-            from picamera2 import Picamera2
+            import cv2
         except ImportError:
             messagebox.showerror(
                 "Missing dependency",
-                "picamera2 is not installed.\n\nOn Raspberry Pi OS run:\n"
-                "sudo apt install -y python3-picamera2",
+                "opencv-python is not installed.\n\nOn Raspberry Pi OS run:\n"
+                "sudo apt install -y python3-opencv\n"
+                "or: pip install opencv-python --break-system-packages",
             )
             sys.exit(1)
 
-        self.Picamera2 = Picamera2
-        self.picam2 = Picamera2()
-        # 'main' = full-res stream used for saved captures
-        # 'lores' = small stream used for the live preview, so the preview
-        # loop stays fast regardless of the save resolution.
-        config = self.picam2.create_still_configuration(
-            main={"size": CAPTURE_SIZE},
-            lores={"size": PREVIEW_SIZE, "format": "RGB888"},
-            display="lores",
-        )
-        self.picam2.configure(config)
-        self.picam2.start()
-        time.sleep(1.0)  # let AE/AWB settle
+        self.cv2 = cv2
+        self.cap = cv2.VideoCapture(camera_index)
+        if not self.cap.isOpened():
+            messagebox.showerror(
+                "Camera not found",
+                f"Could not open camera index {camera_index}.\n\n"
+                "Run this script with --list-cameras to see which indices work, "
+                "or check `ls /dev/video*` and that the webcam is plugged in.",
+            )
+            sys.exit(1)
+
+        # Ask for a higher resolution; the webcam will silently clamp to the
+        # closest mode it actually supports.
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAPTURE_SIZE[0])
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAPTURE_SIZE[1])
+
+        # Warm up: discard the first few frames while auto-exposure settles.
+        for _ in range(5):
+            self.cap.read()
+            time.sleep(0.05)
+
+        actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.actual_capture_size = (actual_w, actual_h)
 
     # ---------------------------------------------------------------
     # UI layout
@@ -128,7 +166,9 @@ class DiceCaptureApp:
         self.preview_label = tk.Label(left, bg="black", width=PREVIEW_SIZE[0], height=PREVIEW_SIZE[1])
         self.preview_label.pack(pady=8)
 
-        self.status_var = tk.StringVar(value="Camera ready.")
+        self.status_var = tk.StringVar(
+            value=f"Camera ready. Capturing at {self.actual_capture_size[0]}x{self.actual_capture_size[1]}."
+        )
         tk.Label(left, textvariable=self.status_var, font=("Arial", 10), bg=BG, fg="#333333",
                  anchor="w", justify="left", wraplength=PREVIEW_SIZE[0]).pack(fill="x")
 
@@ -222,10 +262,14 @@ class DiceCaptureApp:
             sys.exit(1)
 
         try:
-            frame = self.picam2.capture_array("lores")
-            image = Image.fromarray(frame)
-            self.photo_image = ImageTk.PhotoImage(image)
-            self.preview_label.configure(image=self.photo_image)
+            ok, frame = self.cap.read()
+            if ok:
+                rgb = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(rgb).resize(PREVIEW_SIZE)
+                self.photo_image = ImageTk.PhotoImage(image)
+                self.preview_label.configure(image=self.photo_image)
+            else:
+                self.status_var.set("Preview: no frame received from camera.")
         except Exception as exc:  # keep the GUI alive even if a frame grab hiccups
             self.status_var.set(f"Preview error: {exc}")
 
@@ -244,8 +288,15 @@ class DiceCaptureApp:
         filename = f"die{die}_pos{pos}_rot{ori}_side{side}_{timestamp}.jpg"
         filepath = self.outdir / filename
 
+        # Grab a fresh frame at full resolution rather than reusing the
+        # (possibly stale) preview frame.
+        ok, frame = self.cap.read()
+        if not ok:
+            messagebox.showerror("Capture failed", "Camera did not return a frame.")
+            return
+
         try:
-            self.picam2.capture_file(str(filepath), name="main")
+            self.cv2.imwrite(str(filepath), frame)
         except Exception as exc:
             messagebox.showerror("Capture failed", str(exc))
             return
@@ -267,16 +318,19 @@ class DiceCaptureApp:
     # ---------------------------------------------------------------
     def _on_close(self):
         try:
-            if self.picam2 is not None:
-                self.picam2.stop()
+            if self.cap is not None:
+                self.cap.release()
         finally:
             self.root.destroy()
 
 
 def main():
     args = parse_args()
+    if args.list_cameras:
+        list_cameras()
+        return
     root = tk.Tk()
-    app = DiceCaptureApp(root, Path(args.outdir), args.die)
+    app = DiceCaptureApp(root, Path(args.outdir), args.die, args.camera_index)
     root.mainloop()
 
 
