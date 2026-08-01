@@ -1,0 +1,19 @@
+.status {
+    width: 10px;
+    height: 10px;
+    display: inline-block;
+}
+
+.status--red {
+    background: red;
+}
+
+.status--green {
+    background: lightgreen;
+}
+
+
+body {
+    font-family: 'Courier New', Courier, monospace;
+    color: green;
+}
