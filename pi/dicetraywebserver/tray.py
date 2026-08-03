@@ -59,6 +59,7 @@ class TrayState(threading.Thread):
         self.awaiting = False
         self.pending_roll = None
         self.pending_result = None
+        self.pending_image = None
         self.pending_checked = False
         self.latest_result = None
 
@@ -76,19 +77,30 @@ class TrayState(threading.Thread):
     def _handle_classify(self, data):
         """Record a new classify request and ask the
            classifier hook for a result if one is set
+
+        The hook may return a plain value (str or None) or a dict
+        {"value": str or None, "image": str or None} so it can also
+        hand back a captured image for the dashboard to display.
         """
         with self.lock:
             self.pending_roll = data
             self.awaiting = True
             self.pending_result = None
+            self.pending_image = None
             self.pending_checked = False
 
             if self.classify_hook is not None:
                 try:
-                    self.pending_result = self.classify_hook(data)
+                    result = self.classify_hook(data)
+                    if isinstance(result, dict):
+                        self.pending_result = result.get("value")
+                        self.pending_image = result.get("image")
+                    else:
+                        self.pending_result = result
                 except Exception:
                     # never let a classifier crash the state thread
                     self.pending_result = None
+                    self.pending_image = None
                 self.pending_checked = True
 
     def run(self):
@@ -114,10 +126,12 @@ class TrayState(threading.Thread):
                     "value": str(self.pending_result),
                     "source": "classifier",
                     "entered_at": now_iso(),
+                    "image": self.pending_image,
                 }
             self.awaiting = False
             self.pending_roll = None
             self.pending_result = None
+            self.pending_image = None
             self.pending_checked = False
         self.tray.write({"msg": "complete"})
         return True
@@ -138,10 +152,12 @@ class TrayState(threading.Thread):
                 "value": value,
                 "source": "correction",
                 "entered_at": now_iso(),
+                "image": self.pending_image,
             }
             self.awaiting = False
             self.pending_roll = None
             self.pending_result = None
+            self.pending_image = None
             self.pending_checked = False
         self.tray.write({"msg": "complete"})
         return True
@@ -163,6 +179,7 @@ class TrayState(threading.Thread):
             self.awaiting = False
             self.pending_roll = None
             self.pending_result = None
+            self.pending_image = None
             self.pending_checked = False
             self.latest_result = None
         if released:
@@ -178,6 +195,7 @@ class TrayState(threading.Thread):
                 "awaiting": self.awaiting,
                 "pending_roll": dict(self.pending_roll) if self.pending_roll else None,
                 "pending_result": self.pending_result,
+                "pending_image": self.pending_image,
                 "pending_checked": self.pending_checked,
                 "latest_result": dict(self.latest_result) if self.latest_result else None,
             }

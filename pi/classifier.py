@@ -30,6 +30,12 @@ CAPTURE_HEIGHT = 1080
 SETTLE_TIME = 1.0  # seconds to let auto-exposure settle after opening the camera
 TORCH_THREADS = 2
 
+# where the captured roll image is written so the web app can serve it
+STATIC_DIR = ROOT.joinpath("pi/dicetraywebserver/static")
+ROLL_IMAGE_DIR = STATIC_DIR.joinpath("roll_images")
+ROLL_IMAGE_PATH = ROLL_IMAGE_DIR.joinpath("latest.jpg")
+ROLL_IMAGE_URL = "/static/roll_images/latest.jpg"
+
 _model = None
 
 
@@ -70,28 +76,16 @@ def _capture_frame():
         cap.release()
 
 
-def _detect_dice(frame):
-    """Run object detection and return the dice found.
-
-    Returns:
-        list of detections, each as a dict with keys
-        "class" (int), "conf" (float), and "box" (x1, y1, x2, y2).
-        Empty list if the model isn't available or finds nothing.
+def _save_roll_image(image):
+    """Save the captured frame (with annotations if any) where the
+    web app can serve it.  Failures are non-fatal: classification
+    still proceeds without a stored image.
     """
-    model = _load_model()
-    if model is None:
-        return []
-
-    results = model.predict(frame, verbose=False)
-    detections = []
-    for r in results:
-        for box in r.boxes:
-            detections.append({
-                "class": int(box.cls[0]),
-                "conf": float(box.conf[0]),
-                "box": [int(v) for v in box.xyxy[0].tolist()],
-            })
-    return detections
+    try:
+        ROLL_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(ROLL_IMAGE_PATH), image)
+    except Exception as exc:
+        print(f"classifier: could not save roll image: {exc}")
 
 
 def classify_roll(data):
@@ -102,20 +96,38 @@ def classify_roll(data):
             e.g. {"msg": "classify", "triggers": {...}}.
 
     Returns:
-        str: the die face value, e.g. "5".  Return None to skip the
-        classifier so the operator enters the value manually.
+        dict: {"value": str or None, "image": str or None}.  "value"
+        is the die face value, e.g. "5", or None when no die was
+        detected.  "image" is the URL of the captured frame the web
+        app can display.  Return None to skip the classifier so the
+        operator enters the value manually.
     """
     frame = _capture_frame()
     if frame is None:
         return None
 
-    detections = _detect_dice(frame)
+    model = _load_model()
+    detections = []
+    annotated = frame
+    if model is not None:
+        results = model.predict(frame, verbose=False)
+        for r in results:
+            for box in r.boxes:
+                detections.append({
+                    "class": int(box.cls[0]),
+                    "conf": float(box.conf[0]),
+                    "box": [int(v) for v in box.xyxy[0].tolist()],
+                })
+        annotated = results[0].plot()
+
+    _save_roll_image(annotated)
+
     if not detections:
         print("classifier: no dice detected")
-        return None
+        return {"value": None, "image": ROLL_IMAGE_URL}
 
     # Pick the most confident die, then report its face value.
     die = max(detections, key=lambda d: d["conf"])
     value = str(die["class"] + 1)
     print(f"classifier: detected die at {die['box']} -> face value {value}")
-    return value
+    return {"value": value, "image": ROLL_IMAGE_URL}

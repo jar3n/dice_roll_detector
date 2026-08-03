@@ -14,6 +14,7 @@
 <section id="awaiting" class="panel hidden">
     <h2>Roll Detected</h2>
     <p id="awaitingMsg">The dice tray is waiting for a result.</p>
+    <img id="pendingImage" class="roll-image hidden" alt="Captured dice roll">
     <div id="pendingResultBox" class="hidden">
         <p>Classifier result: <strong id="pendingResult"></strong></p>
         <button id="confirmBtn">Confirm Result</button>
@@ -29,6 +30,7 @@
 <section class="result">
     <h2>Latest Result</h2>
     <p id="latestResult">No results yet</p>
+    <img id="latestImage" class="roll-image hidden" alt="Latest dice roll">
     <button id="resetBtn">Reset</button>
 </section>
 
@@ -57,11 +59,16 @@
         const pendingResultBox = document.getElementById("pendingResultBox")
         const correctForm = document.getElementById("correctForm")
         const awaitingMsg = document.getElementById("awaitingMsg")
+        const pendingImage = document.getElementById("pendingImage")
 
         show(awaitingBox, data.awaiting)
         if (!data.awaiting) return
 
         if (data.pending_checked){
+            show(pendingImage, !!data.pending_image)
+            if (data.pending_image){
+                pendingImage.src = data.pending_image + "?t=" + Date.now()
+            }
             if (data.pending_result !== null){
                 awaitingMsg.textContent = "Roll detected - result ready: " + data.pending_result
                 show(pendingResultBox, true)
@@ -73,6 +80,7 @@
         } else {
             awaitingMsg.textContent = "Roll detected - processing..."
             show(pendingResultBox, false)
+            show(pendingImage, false)
         }
         show(correctForm, true)
         if (!lastAwaiting){
@@ -83,10 +91,16 @@
 
     function renderLatest(result){
         const el = document.getElementById("latestResult")
+        const img = document.getElementById("latestImage")
         if (result === null){
             el.textContent = "No results yet"
+            show(img, false)
         } else {
             el.textContent = `${result.value}  (${result.source}, ${result.entered_at})`
+            show(img, !!result.image)
+            if (result.image){
+                img.src = result.image + "?t=" + Date.now()
+            }
         }
     }
 

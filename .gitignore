@@ -5,4 +5,5 @@ model_making/cv_work/*
 **/__pycache__/**
 yolo26n.pt
 labels.cache
+pi/dicetraywebserver/static/roll_images/
 
