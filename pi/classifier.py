@@ -80,12 +80,21 @@ def _save_roll_image(image):
     """Save the captured frame (with annotations if any) where the
     web app can serve it.  Failures are non-fatal: classification
     still proceeds without a stored image.
+
+    Returns:
+        bool: True if the image was written successfully
     """
     try:
         ROLL_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
-        cv2.imwrite(str(ROLL_IMAGE_PATH), image)
+        ok = cv2.imwrite(str(ROLL_IMAGE_PATH), image)
+        if ok:
+            print(f"classifier: saved roll image to {ROLL_IMAGE_PATH}")
+        else:
+            print(f"classifier: could not write roll image to {ROLL_IMAGE_PATH}")
+        return ok
     except Exception as exc:
         print(f"classifier: could not save roll image: {exc}")
+        return False
 
 
 def classify_roll(data):
@@ -120,14 +129,15 @@ def classify_roll(data):
                 })
         annotated = results[0].plot()
 
-    _save_roll_image(annotated)
+    saved = _save_roll_image(annotated)
+    image_url = ROLL_IMAGE_URL if saved else None
 
     if not detections:
         print("classifier: no dice detected")
-        return {"value": None, "image": ROLL_IMAGE_URL}
+        return {"value": None, "image": image_url}
 
     # Pick the most confident die, then report its face value.
     die = max(detections, key=lambda d: d["conf"])
     value = str(die["class"] + 1)
     print(f"classifier: detected die at {die['box']} -> face value {value}")
-    return {"value": value, "image": ROLL_IMAGE_URL}
+    return {"value": value, "image": image_url}

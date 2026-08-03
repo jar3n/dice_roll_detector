@@ -102,6 +102,8 @@ class TrayState(threading.Thread):
                     self.pending_result = None
                     self.pending_image = None
                 self.pending_checked = True
+                if self.pending_image:
+                    print(f"tray: roll image available at {self.pending_image}")
 
     def run(self):
         """Thread loop: consume messages from the serial thread"""
