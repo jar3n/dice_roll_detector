@@ -164,6 +164,28 @@ class TrayState(threading.Thread):
         self.tray.write({"msg": "complete"})
         return True
 
+    def discard(self):
+        """Discard the current roll: clear pending state and release the
+        pico without recording a result.
+
+        latest_result is left untouched so a previous result stays paired
+        with its image.
+
+        Returns:
+            bool: True if there was a roll awaiting confirmation
+        """
+        discarded = False
+        with self.lock:
+            discarded = self.awaiting
+            self.awaiting = False
+            self.pending_roll = None
+            self.pending_result = None
+            self.pending_image = None
+            self.pending_checked = False
+        if discarded:
+            self.tray.write({"msg": "complete"})
+        return discarded
+
     def reset(self):
         """Clear all roll state (awaiting, pending, latest result).
 

@@ -139,7 +139,7 @@
         postAction("/api/correct", new URLSearchParams({value}))
     })
 
-    document.getElementById("skipBtn").addEventListener("click", () => postAction("/api/confirm"))
+    document.getElementById("skipBtn").addEventListener("click", () => postAction("/api/discard"))
 
     document.getElementById("resetBtn").addEventListener("click", () => postAction("/api/reset"))
 

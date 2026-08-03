@@ -52,6 +52,14 @@ def api_correct():
     return jsonify({"ok": accepted, "status": tray.status()})
 
 
+@bp.route("/api/discard", methods=["POST"])
+def api_discard():
+    """Discard the current roll without recording a result"""
+    tray = get_tray_state()
+    accepted = tray.discard()
+    return jsonify({"ok": accepted, "status": tray.status()})
+
+
 @bp.route("/api/reset", methods=["POST"])
 def api_reset():
     """Clear the tray state (awaiting, pending, latest result)"""
