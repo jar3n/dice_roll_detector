@@ -3,4 +3,6 @@ dice_images/*
 *.swp
 model_making/cv_work/*
 **/__pycache__/**
+yolo26n.pt
+labels.cache
 

@@ -1,3 +1,0 @@
-this is where code and other stuff goes for the pi side of this project 
-
-the pi side is where the computer vision will be 
