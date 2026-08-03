@@ -55,15 +55,20 @@
         const awaitingBox = document.getElementById("awaiting")
         const pendingResultBox = document.getElementById("pendingResultBox")
         const correctForm = document.getElementById("correctForm")
+        const awaitingMsg = document.getElementById("awaitingMsg")
 
         show(awaitingBox, data.awaiting)
         if (!data.awaiting) return
 
-        show(pendingResultBox, data.pending_result !== null)
-        show(correctForm, true)
         if (data.pending_result !== null){
+            awaitingMsg.textContent = "Roll detected - result ready: " + data.pending_result
+            show(pendingResultBox, true)
             document.getElementById("pendingResult").textContent = data.pending_result
+        } else {
+            awaitingMsg.textContent = "Roll detected - processing..."
+            show(pendingResultBox, false)
         }
+        show(correctForm, true)
         if (!lastAwaiting){
             document.getElementById("rollValue").value = ""
         }
