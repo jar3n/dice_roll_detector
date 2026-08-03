@@ -1,10 +1,16 @@
+import sys
+
 import matplotlib.pyplot as plt
 
 from ultralytics import YOLO
 
+if len(sys.argv) != 2:
+    print(f"usage: {sys.argv[0]} /path/to/dice_image.jpg")
+    sys.exit(1)
+
 model = YOLO("model_making/yolo26_dice.pt")
 
-results = model.predict("model_making/dice_images/images/die6_pos6_rot240_side6_20260801-214842.jpg")
+results = model.predict(sys.argv[1])
 
 annotated = results[0].plot()
 annotated_rgb = annotated[..., ::-1]
