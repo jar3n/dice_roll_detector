@@ -49,6 +49,8 @@
         el.classList.toggle('hidden', !show)
     }
 
+    let lastAwaiting = false
+
     function renderAwaiting(data){
         const awaitingBox = document.getElementById("awaiting")
         const pendingResultBox = document.getElementById("pendingResultBox")
@@ -62,7 +64,10 @@
         if (data.pending_result !== null){
             document.getElementById("pendingResult").textContent = data.pending_result
         }
-        document.getElementById("rollValue").value = ""
+        if (!lastAwaiting){
+            document.getElementById("rollValue").value = ""
+        }
+        lastAwaiting = data.awaiting
     }
 
     function renderLatest(result){
