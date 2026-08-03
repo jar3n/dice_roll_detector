@@ -146,6 +146,20 @@ class TrayState(threading.Thread):
         self.tray.write({"msg": "complete"})
         return True
 
+    def reset(self):
+        """Clear all roll state (awaiting, pending, latest result).
+
+        Does not touch the pico or the serial link; the tray simply
+        forgets about any current or past roll.
+        """
+        with self.lock:
+            self.awaiting = False
+            self.pending_roll = None
+            self.pending_result = None
+            self.pending_checked = False
+            self.latest_result = None
+        return True
+
     def status(self):
         """Snapshot of the tray state for the web routes"""
         with self.lock:

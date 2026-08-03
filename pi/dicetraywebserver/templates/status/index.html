@@ -29,6 +29,7 @@
 <section class="result">
     <h2>Latest Result</h2>
     <p id="latestResult">No results yet</p>
+    <button id="resetBtn">Reset</button>
 </section>
 
 <script>
@@ -125,6 +126,8 @@
     })
 
     document.getElementById("skipBtn").addEventListener("click", () => postAction("/api/confirm"))
+
+    document.getElementById("resetBtn").addEventListener("click", () => postAction("/api/reset"))
 
     // poll every second and run once on load
     setInterval(pollStatus, 1000)

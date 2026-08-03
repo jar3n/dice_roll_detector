@@ -50,3 +50,11 @@ def api_correct():
     tray = get_tray_state()
     accepted = tray.correct(value)
     return jsonify({"ok": accepted, "status": tray.status()})
+
+
+@bp.route("/api/reset", methods=["POST"])
+def api_reset():
+    """Clear the tray state (awaiting, pending, latest result)"""
+    tray = get_tray_state()
+    tray.reset()
+    return jsonify({"ok": True, "status": tray.status()})
