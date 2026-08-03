@@ -3,5 +3,5 @@ dice_images/*
 *.swp
 pi/__pycache__/*
 model_making/cv_work/*
-*/__pycache__/*
+**/__pycache__/**
 
