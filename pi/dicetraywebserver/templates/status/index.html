@@ -60,10 +60,15 @@
         show(awaitingBox, data.awaiting)
         if (!data.awaiting) return
 
-        if (data.pending_result !== null){
-            awaitingMsg.textContent = "Roll detected - result ready: " + data.pending_result
-            show(pendingResultBox, true)
-            document.getElementById("pendingResult").textContent = data.pending_result
+        if (data.pending_checked){
+            if (data.pending_result !== null){
+                awaitingMsg.textContent = "Roll detected - result ready: " + data.pending_result
+                show(pendingResultBox, true)
+                document.getElementById("pendingResult").textContent = data.pending_result
+            } else {
+                awaitingMsg.textContent = "No dice detected - enter value manually"
+                show(pendingResultBox, false)
+            }
         } else {
             awaitingMsg.textContent = "Roll detected - processing..."
             show(pendingResultBox, false)

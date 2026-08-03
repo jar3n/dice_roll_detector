@@ -59,6 +59,7 @@ class TrayState(threading.Thread):
         self.awaiting = False
         self.pending_roll = None
         self.pending_result = None
+        self.pending_checked = False
         self.latest_result = None
 
     def initiate_background_process(self):
@@ -80,6 +81,7 @@ class TrayState(threading.Thread):
             self.pending_roll = data
             self.awaiting = True
             self.pending_result = None
+            self.pending_checked = False
 
             if self.classify_hook is not None:
                 try:
@@ -87,6 +89,7 @@ class TrayState(threading.Thread):
                 except Exception:
                     # never let a classifier crash the state thread
                     self.pending_result = None
+                self.pending_checked = True
 
     def run(self):
         """Thread loop: consume messages from the serial thread"""
@@ -115,6 +118,7 @@ class TrayState(threading.Thread):
             self.awaiting = False
             self.pending_roll = None
             self.pending_result = None
+            self.pending_checked = False
         self.tray.write({"msg": "complete"})
         return True
 
@@ -138,6 +142,7 @@ class TrayState(threading.Thread):
             self.awaiting = False
             self.pending_roll = None
             self.pending_result = None
+            self.pending_checked = False
         self.tray.write({"msg": "complete"})
         return True
 
@@ -150,6 +155,7 @@ class TrayState(threading.Thread):
                 "awaiting": self.awaiting,
                 "pending_roll": dict(self.pending_roll) if self.pending_roll else None,
                 "pending_result": self.pending_result,
+                "pending_checked": self.pending_checked,
                 "latest_result": dict(self.latest_result) if self.latest_result else None,
             }
 
