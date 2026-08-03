@@ -2,4 +2,5 @@ datafiles/*
 dice_images/*
 *.swp
 pi/__pycache__/*
+model_making/cv_work/*
 
