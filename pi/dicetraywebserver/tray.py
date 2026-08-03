@@ -149,16 +149,25 @@ class TrayState(threading.Thread):
     def reset(self):
         """Clear all roll state (awaiting, pending, latest result).
 
-        Does not touch the pico or the serial link; the tray simply
-        forgets about any current or past roll.
+        If the pico was waiting for a classify result, also send it a
+        "complete" message so it returns to polling.  If the pico was
+        already polling, nothing is written (a stray "complete" would
+        sit in its input buffer and swallow the next roll's request).
+
+        Returns:
+            bool: True if the pico was released back to polling
         """
+        released = False
         with self.lock:
+            released = self.awaiting
             self.awaiting = False
             self.pending_roll = None
             self.pending_result = None
             self.pending_checked = False
             self.latest_result = None
-        return True
+        if released:
+            self.tray.write({"msg": "complete"})
+        return released
 
     def status(self):
         """Snapshot of the tray state for the web routes"""
