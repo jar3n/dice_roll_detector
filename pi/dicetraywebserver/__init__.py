@@ -33,6 +33,28 @@ def create_app(test_config=None):
         SECRET_KEY='dev',
         SERIAL_PORT=os.environ.get("DICETRAY_SERIAL_PORT", "/dev/ttyACM0"),
         SERIAL_BAUD=int(os.environ.get("DICETRAY_SERIAL_BAUD", "115200")),
+        # CLASSIFY_HOOK is how you plug the dice classifier into the web app.
+        #
+        # When the pico detects a roll it sends a {"msg": "classify", ...} message
+        # over serial.  tray.py picks that up and, if CLASSIFY_HOOK is set, calls it
+        # with the full message dict.  The return value becomes the "pending result"
+        # shown on the dashboard, where you confirm or correct it before the pico is
+        # released back to polling.
+        #
+        # Wire it up by importing a callable in pi/instance/config.py:
+        #
+        #     from my_classifier import classify_roll
+        #     CLASSIFY_HOOK = classify_roll
+        #
+        # The hook signature is:
+        #
+        #     def classify_roll(data: dict) -> str:   # data == {"msg": "classify", ...}
+        #         ...take a photo / run the model...
+        #         return "5"                          # face value shown on the dashboard
+        #
+        # Return the roll value as a str, or None to skip the classifier (the operator
+        # then has to enter the value manually).  If the hook raises, tray.py treats
+        # the result as None, so it can never crash the serial state thread.
         CLASSIFY_HOOK=None,
     )
 
