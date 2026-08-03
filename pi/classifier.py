@@ -28,6 +28,7 @@ MODEL_PATH = ROOT.joinpath("model_making/yolo26_dice.pt")
 CAPTURE_WIDTH = 1920
 CAPTURE_HEIGHT = 1080
 SETTLE_TIME = 1.0  # seconds to let auto-exposure settle after opening the camera
+TORCH_THREADS = 2
 
 _model = None
 
@@ -37,8 +38,10 @@ def _load_model():
     global _model
     if _model is None:
         try:
+            import torch
             from ultralytics import YOLO
 
+            torch.set_num_threads(TORCH_THREADS)
             _model = YOLO(MODEL_PATH)
         except Exception as exc:
             print(f"classifier: could not load model {MODEL_PATH!r}: {exc}")
