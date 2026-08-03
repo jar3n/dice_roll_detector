@@ -28,6 +28,7 @@ MODEL_PATH = ROOT.joinpath("model_making/yolo26_dice.pt")
 CAPTURE_WIDTH = 1920
 CAPTURE_HEIGHT = 1080
 SETTLE_TIME = 1.0  # seconds to let auto-exposure settle after opening the camera
+WARMUP_FRAMES = 5  # frames to discard so auto-exposure/gain settles before capture
 TORCH_THREADS = 2
 
 # where the captured roll image is written so the web app can serve it
@@ -58,6 +59,11 @@ def _load_model():
 def _capture_frame():
     """Grab one still frame from the camera.
 
+    The first frames from a freshly opened camera are usually too
+    dark or too bright while auto-exposure/white-balance converge, so
+    a batch of warmup frames is read and discarded before keeping the
+    last one.  This keeps brightness consistent from roll to roll.
+
     Returns:
         numpy.ndarray (BGR) or None if the camera can't be opened.
     """
@@ -70,8 +76,13 @@ def _capture_frame():
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAPTURE_WIDTH)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAPTURE_HEIGHT)
         time.sleep(SETTLE_TIME)
-        ok, frame = cap.read()
-        return frame if ok else None
+        frame = None
+        for _ in range(WARMUP_FRAMES):
+            ok, frame = cap.read()
+            if not ok:
+                frame = None
+                break
+        return frame
     finally:
         cap.release()
 
