@@ -1,4 +1,4 @@
-#!/home/jenglander/Documents/665.681_Application_of_Sensor_Systems/course_project/code/pi/.venv/bin/python
+#!/home/jenglander/Documents/665.681_Application_of_Sensor_Systems/course_project/code/.venv/bin/python
 """
 bbox_editor.py
 
@@ -20,8 +20,9 @@ Usage:
     python3 bbox_editor.py --images-dir ../data/source/obj --labels-dir ../data/source/labels
     python3 bbox_editor.py --classes die,dice
 
-    # use the pi venv, which has tkinter + Pillow (with ImageTk) installed:
-    ../pi/.venv/bin/python bbox_editor.py
+    # use the project venv (code/.venv), which has tkinter + Pillow
+    # (with ImageTk) installed:
+    ../.venv/bin/python bbox_editor.py
 
 Controls:
     Mouse
@@ -63,16 +64,16 @@ HANDLE_SIZE = 8
 
 
 def parse_args():
-    repo = Path(__file__).resolve().parents[2]
-    source = repo / "data" / "source" / "obj"
-    dataset = repo / "data" / "datasets"
+    project_root = Path(__file__).resolve().parents[3]
+    source = project_root / "data" / "source" / "obj"
+    dataset = project_root / "data" / "datasets"
 
     p = argparse.ArgumentParser(description="Visualize and correct YOLO bbox labels.")
     p.add_argument("--split", type=str, choices=["train", "val"], default=None,
                    help="Edit a dataset split instead of the source images: "
                         "images and labels under data/datasets/{images,labels}/<split>")
     p.add_argument("--images-dir", type=str, default=None,
-                   help="Directory of images to review (default: data/source/obj)")
+                   help="Directory of images to review (default: <project>/data/source/obj)")
     p.add_argument("--labels-dir", type=str, default=None,
                    help="Directory of YOLO label files (default: same as --images-dir, "
                         "i.e. label files are written next to the images)")

@@ -20,8 +20,11 @@ Requires:
 
 Usage:
     python3 dice_capture_gui.py
-    python3 dice_capture_gui.py --outdir ./data --die 2 --camera-index 0
+    python3 dice_capture_gui.py --die 2 --camera-index 0
     python3 dice_capture_gui.py --list-cameras
+
+Saves images into the project data folder (../data/source/obj) by default;
+override with --outdir if you want them elsewhere.
 """
 
 import argparse
@@ -57,8 +60,9 @@ BG = "#F2F2F2"
 
 def parse_args():
     p = argparse.ArgumentParser(description="Live-preview capture GUI for dice classifier data.")
-    p.add_argument("--outdir", type=str, default="./captures",
-                    help="Directory to save images into (default: ./captures)")
+    p.add_argument("--outdir", type=str,
+                    default=str(Path(__file__).resolve().parents[3] / "data" / "source" / "obj"),
+                    help="Directory to save images into (default: <project>/data/source/obj)")
     p.add_argument("--die", type=int, default=1, choices=DICE,
                     help="Initial die number selection (default: 1)")
     p.add_argument("--camera-index", type=int, default=0,

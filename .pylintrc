@@ -1,0 +1,4 @@
+[MASTER]
+# Modules that only exist on the Raspberry Pi Pico (MicroPython), plus
+# MicroPython-only members of the stdlib 'time' module
+ignored-modules=machine,ujson,uasyncio,time.ticks_ms,time.ticks_diff

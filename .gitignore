@@ -1,9 +1,10 @@
 datafiles/*
 dice_images/*
 *.swp
-model_making/cv_work/*
+client/model_making/cv_work/*
 **/__pycache__/**
+.venv/
 yolo26n.pt
 labels.cache
-pi/dicetraywebserver/static/roll_images/
+client/demo/dicetraywebserver/static/roll_images/
 

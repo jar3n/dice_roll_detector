@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parent
 CODE_ROOT = ROOT.parent
 sys.path = [p for p in sys.path if Path(p).resolve() != CODE_ROOT]
 
+PROJECT_DATA = Path(__file__).resolve().parents[3] / "data"
+
 import yaml
 
 from ultralytics import YOLO
@@ -154,15 +156,22 @@ def mean(values):
 
 def main():
     parser = argparse.ArgumentParser(description="Train YOLO26 with stratified k-fold CV")
-    parser.add_argument("--data", type=Path, default=ROOT / "dice_images" / "data.yaml")
+    parser.add_argument("--data", type=Path,
+                        default=PROJECT_DATA / "cv_work" / "dataset" / "data.yaml",
+                        help="data.yaml of the normalized dataset (default: "
+                             "<project>/data/cv_work/dataset/data.yaml)")
     parser.add_argument("--model", type=str, default="yolo26n.pt")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--workdir", type=Path, default=ROOT / "cv_work")
-    parser.add_argument("--out", type=Path, default=ROOT / "yolo26_dice.pt")
+    parser.add_argument("--workdir", type=Path, default=PROJECT_DATA / "cv_work",
+                        help="Working directory for the normalized dataset, folds, and "
+                             "CV runs (default: <project>/data/cv_work)")
+    parser.add_argument("--out", type=Path, default=ROOT / "yolo26_dice.pt",
+                        help="Where to copy the final weights "
+                             "(default: <code>/client/model_making/yolo26_dice.pt)")
     args = parser.parse_args()
 
     work_dir = args.workdir.resolve()

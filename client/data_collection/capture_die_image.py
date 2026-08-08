@@ -8,7 +8,10 @@ Designed to match the "Dice Roll Classifier — Data Collection Tracker" spreads
 
 Usage:
     python3 capture_die_image.py --orientation 60 --position 3 --side 5
-    python3 capture_die_image.py -o 0 -p 9 -s 1 --die 2 --outdir ./data --preview
+    python3 capture_die_image.py -o 0 -p 9 -s 1 --die 2 --preview
+
+Saves images into the project data folder (../data/source/obj) by default;
+override with --outdir if you want them elsewhere.
 
 Filename format:
     die<DIE>_pos<POSITION>_rot<ORIENTATION>_side<SIDE>_<TIMESTAMP>.jpg
@@ -49,8 +52,9 @@ def parse_args():
         help="Which physical die is being photographed (default: 1)."
     )
     parser.add_argument(
-        "--outdir", type=str, default="./captures",
-        help="Directory to save the image into (created if it doesn't exist). Default: ./captures"
+        "--outdir", type=str, default=str(Path(__file__).resolve().parents[3] / "data" / "source" / "obj"),
+        help="Directory to save the image into (created if it doesn't exist). "
+             "Default: <project>/data/source/obj"
     )
     parser.add_argument(
         "--width", type=int, default=1640, help="Capture width in pixels (default: 1640)."

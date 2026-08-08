@@ -6,24 +6,7 @@
 
 
 from machine import Pin, ADC, PWM
-from time import sleep, ticks_ms, ticks_diff
-
-
-class softTimer:
-    
-    def __init__(self, period):
-        self.period = period
-        self.prev_time = ticks_ms()
-    
-    def elapsed(self):
-        current = ticks_ms()
-        if ticks_diff(current, self.prev_time) >= self.period:
-            self.prev_time = current
-            return True
-        return False
-    
-    def extend(self):
-        self.prev_time = ticks_ms()
+import uasyncio as asyncio
 
 
 # pin constants
@@ -39,7 +22,7 @@ red_light = PWM(Pin(RED_PIN))
 readings = []
 
 print("Initiating noise floor measurements")
-noise_floor_timer = softTimer(5000)
+noise_floor_timer = softTimer(30000)
 
 sample_rate_timer = softTimer(100)
 

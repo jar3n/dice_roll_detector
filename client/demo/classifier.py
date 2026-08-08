@@ -17,39 +17,41 @@ That import works because pi/ is put on sys.path by
 dicetraywebserver/tray.py (the parent of the web package).
 """
 
+from cv2 import VideoCapture
+
+
 import time
 from pathlib import Path
+from typing import Literal
+from ultralytics import YOLO
 import cv2
+import torch
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT: Path = Path(__file__).resolve().parent.parent
 
 CAMERA_INDEX = 0
-MODEL_PATH = ROOT.joinpath("model_making/yolo26_dice.pt")
+MODEL_PATH: Path = ROOT.joinpath("model_making/yolo26_dice.pt")
 CAPTURE_WIDTH = 1920
 CAPTURE_HEIGHT = 1080
-SETTLE_TIME = 1.0  # seconds to let auto-exposure settle after opening the camera
+SETTLE_TIME: float = 1.0  # seconds to let auto-exposure settle after opening the camera
 WARMUP_FRAMES = 5  # frames to discard so auto-exposure/gain settles before capture
 TORCH_THREADS = 2
 
 # where the captured roll image is written so the web app can serve it
-STATIC_DIR = ROOT.joinpath("pi/dicetraywebserver/static")
-ROLL_IMAGE_DIR = STATIC_DIR.joinpath("roll_images")
-ROLL_IMAGE_PATH = ROLL_IMAGE_DIR.joinpath("latest.jpg")
+STATIC_DIR: Path = ROOT.joinpath("pi/dicetraywebserver/static")
+ROLL_IMAGE_DIR: Path = STATIC_DIR.joinpath("roll_images")
+ROLL_IMAGE_PATH: Path = ROLL_IMAGE_DIR.joinpath("latest.jpg")
 ROLL_IMAGE_URL = "/static/roll_images/latest.jpg"
 
-_model = None
+_model: YOLO | None = None   # pyright: ignore[reportRedeclaration, reportAssignmentType]
 
-
-def _load_model():
+def _load_model() -> YOLO | Literal[True] | None:
     """Lazily load the YOLO detection model once per process."""
     global _model
     if _model is None:
         try:
-            import torch
-            from ultralytics import YOLO
-
             torch.set_num_threads(TORCH_THREADS)
-            _model = YOLO(MODEL_PATH)
+            _model: YOLO = YOLO(MODEL_PATH)
         except Exception as exc:
             print(f"classifier: could not load model {MODEL_PATH!r}: {exc}")
             _model = False
@@ -68,7 +70,7 @@ def _capture_frame():
         numpy.ndarray (BGR) or None if the camera can't be opened.
     """
 
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap: VideoCapture = cv2.VideoCapture(CAMERA_INDEX)
     if not cap.isOpened():
         print(f"classifier: could not open camera index {CAMERA_INDEX}")
         return None
