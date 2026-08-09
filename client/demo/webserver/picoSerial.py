@@ -53,7 +53,7 @@ class SerialDiceTray(threading.Thread):
         for the pico and communicate with it
     """
 
-    def __init__(self, port: str, baud: int, timeout: int) -> None:
+    def __init__(self, port: str, baud: int, timeout: int = 1) -> None:
         threading.Thread.__init__(self)
         self.connected: bool = False
         self.serial_settings: SerialSettings = SerialSettings(port, baud, timeout)

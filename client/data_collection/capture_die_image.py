@@ -82,8 +82,8 @@ def main():
     args = parse_args()
 
     try:
-        from picamera2 import Picamera2
-        from picamera2.previews.null_preview import NullPreview  # noqa: F401  (import check)
+        from picamera2 import Picamera2  # pyright: ignore[reportMissingImports]
+        from picamera2.previews.null_preview import NullPreview  # noqa: F401  (import check)  # pyright: ignore[reportMissingImports]
     except ImportError:
         print(
             "ERROR: picamera2 is not installed. On Raspberry Pi OS run:\n"

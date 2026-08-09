@@ -55,7 +55,7 @@ def main():
     ser.reset_input_buffer()
 
     rows = []
-    emas = {a: None for a in alpha_list}
+    emas: dict[float, float | None] = {a: None for a in alpha_list}
     stop_event = threading.Event()
 
     def process_line(raw):
@@ -76,11 +76,10 @@ def main():
 
         out_row = {"timestamp": ts, "raw": x}
         for a in alpha_list:
-            if emas[a] is None:
-                emas[a] = float(x)
-            else:
-                emas[a] = a * x + (1.0 - a) * emas[a]
-            out_row[f"ema_{a}"] = emas[a]
+            prev = emas[a]
+            ema = float(x) if prev is None else a * x + (1.0 - a) * prev
+            emas[a] = ema
+            out_row[f"ema_{a}"] = ema
 
         rows.append(out_row)
 

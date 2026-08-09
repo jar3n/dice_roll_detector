@@ -44,6 +44,7 @@ Controls:
 import argparse
 import sys
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 import tkinter as tk
 from tkinter import font as tkfont
@@ -113,6 +114,20 @@ def save_boxes(path: Path, boxes):
     path.write_text("\n".join(lines) + "\n" if lines else "")
 
 
+class DragState(TypedDict):
+    """Mouse drag state for drawing, moving, or resizing a box."""
+    mode: str
+    corner: NotRequired[int]
+    ox: NotRequired[float]
+    oy: NotRequired[float]
+    dx: NotRequired[float]
+    dy: NotRequired[float]
+    sx: NotRequired[float]
+    sy: NotRequired[float]
+    cx: NotRequired[float]
+    cy: NotRequired[float]
+
+
 class BBoxEditor:
     def __init__(self, root: tk.Tk, images_dir: Path, labels_dir: Path, classes):
         self.root = root
@@ -127,7 +142,7 @@ class BBoxEditor:
             raise SystemExit(f"No images found in {self.images_dir}")
 
         self.index = 0
-        self.img = None
+        self.img: Image.Image
         self.photo = None
         self.disp_w = self.disp_h = 0
         self.scale = 1.0
@@ -135,7 +150,7 @@ class BBoxEditor:
         self.boxes = []
         self.selected = -1
         self.history = []
-        self.drag = None
+        self.drag: DragState | None = None
         self.sides_var = tk.StringVar(value="6")
         self.side_up_var = tk.StringVar(value="1")
 
@@ -255,8 +270,6 @@ class BBoxEditor:
         self._update_info()
 
     def _refit(self):
-        if self.img is None:
-            return
         cw = self.canvas.winfo_width()
         ch = self.canvas.winfo_height()
         if cw <= 1 or ch <= 1:
@@ -267,8 +280,8 @@ class BBoxEditor:
         self.disp_h = int(img_h * self.scale)
         self.offset_x = (cw - self.disp_w) // 2
         self.offset_y = (ch - self.disp_h) // 2
-        from PIL import ImageTk
-        self.photo = ImageTk.PhotoImage(self.img.resize((self.disp_w, self.disp_h), Image.LANCZOS))
+        from PIL import ImageTk  # pyright: ignore[reportAttributeAccessIssue]
+        self.photo = ImageTk.PhotoImage(self.img.resize((self.disp_w, self.disp_h), Image.Resampling.LANCZOS))
         self.canvas.delete("all")
         self.canvas.create_image(self.offset_x, self.offset_y, image=self.photo,
                                  anchor="nw", tags=("bg",))
@@ -370,7 +383,9 @@ class BBoxEditor:
         mode = self.drag["mode"]
         if mode == "move":
             b = self.boxes[self.selected]
-            ix, iy = self._canvas_to_img(cx - self.drag["dx"], cy - self.drag["dy"])
+            dx = self.drag.get("dx", 0.0)
+            dy = self.drag.get("dy", 0.0)
+            ix, iy = self._canvas_to_img(cx - dx, cy - dy)
             b["x"] = max(0.0, min(1.0, ix / self.img.size[0]))
             b["y"] = max(0.0, min(1.0, iy / self.img.size[1]))
             self._redraw()
@@ -379,12 +394,17 @@ class BBoxEditor:
             self._redraw()
         elif mode == "draw":
             self.drag["cx"], self.drag["cy"] = cx, cy
-            self._redraw((self.drag["sx"], self.drag["sy"], cx, cy))
+            sx = self.drag.get("sx", 0.0)
+            sy = self.drag.get("sy", 0.0)
+            self._redraw((sx, sy, cx, cy))
 
     def _drag_resize(self, cx, cy):
+        assert self.drag is not None
         b = self.boxes[self.selected]
-        oxi = (self.drag["ox"] - self.offset_x) / self.scale
-        oyi = (self.drag["oy"] - self.offset_y) / self.scale
+        ox = self.drag.get("ox", 0.0)
+        oy = self.drag.get("oy", 0.0)
+        oxi = (ox - self.offset_x) / self.scale
+        oyi = (oy - self.offset_y) / self.scale
         cxi, cyi = self._canvas_to_img(cx, cy)
         W, H = self.img.size
         x1 = max(0.0, min(oxi, cxi)); x2 = min(W, max(oxi, cxi))
@@ -402,7 +422,8 @@ class BBoxEditor:
         if not self.drag or self.drag["mode"] != "draw":
             self.drag = None
             return
-        sx, sy = self.drag["sx"], self.drag["sy"]
+        sx = self.drag.get("sx", 0.0)
+        sy = self.drag.get("sy", 0.0)
         ex, ey = event.x, event.y
         self.drag = None
         self._redraw()
