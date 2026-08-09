@@ -2,13 +2,12 @@
 # detected by the vibration sensor
 # useful for determining the threshold
 # for the vibration sensor
-
-
-
 from machine import Pin, ADC, PWM
 import uasyncio as asyncio
 import select
 import sys
+import ujson as json
+from time import ticks_ms
 
 # pin constants
 VIBE_PIN = 26
@@ -23,7 +22,8 @@ data = {
     "filtered05": None,
     "filtered1": None,
     "filtered2": None,
-    "filtered3": None
+    "filtered3": None,
+    "timestamp": None
     }
 
 IDLE = 0
@@ -35,7 +35,9 @@ state = IDLE
 # Exponential Moving Average
 EMAs = [0.05, 0.1, 0.2, 0.3]
 
-SAMPLE_RATE = 50 
+SAMPLE_RATE = 50
+
+start_time = 0
 
 
 def ema(old, new, alpha):
@@ -57,12 +59,15 @@ async def vibe_task():
             """seed all values with initial raw value"""
             for key in data.keys():
                 data[key] = vibe_val
+            data["timestamp"] = ticks_ms()
+            
         else:
             data["vibe"] = vibe_val
             data["filtered05"] = ema(data["filtered05"], vibe_val, EMAs[0])
             data["filtered1"] = ema(data["filtered1"], vibe_val, EMAs[1])
             data["filtered2"] = ema(data["filtered2"], vibe_val, EMAs[2])
             data["filtered3"] = ema(data["filtered3"], vibe_val, EMAs[3])
+            data["timestamp"] = ticks_ms()
     
         
         await asyncio.sleep_ms(SAMPLE_RATE)
@@ -105,13 +110,18 @@ async def cmd_listener_task():
 
 async def print_task():
     """Print Data to Terminal"""
-    global state
+    global state, data, start_time
+    
+    prev_time = start_time
+    
     while True:
         if state == IDLE:
             await asyncio.sleep_ms(4) 
         
         else:
-            print(data)
+            if data["vibe"] is not None and data["timestamp"] > prev_time:
+                print(json.dumps(data))
+                prev_time = data["timestamp"]
             await asyncio.sleep_ms(SAMPLE_RATE)
 
 async def main():
@@ -132,4 +142,6 @@ except KeyboardInterrupt:
         
         
         
+
+
 
