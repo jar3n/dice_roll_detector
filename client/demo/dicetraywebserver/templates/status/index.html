@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+
+{% block content%}
+
+<section class="statuses">
+   <h2>Device Statuses:</h2>
+    <ul>
+        <li>Camera: <div id="camerastatus" class="status status--red"></div></li>
+        <li>Dice Tray: <div id="dicetraystatus" class="status status--red"></div></li>
+    </ul>
+</section>
+
+<section id="awaiting" class="panel hidden">
+    <h2>Roll Detected</h2>
+    <p id="awaitingMsg">The dice tray is waiting for a result.</p>
+    <img id="pendingImage" class="roll-image hidden" alt="Captured dice roll">
+    <div id="pendingResultBox" class="hidden">
+        <p>Classifier result: <strong id="pendingResult"></strong></p>
+        <button id="confirmBtn">Confirm Result</button>
+    </div>
+    <form id="correctForm" class="hidden">
+        <label for="rollValue">Enter dice roll:</label>
+        <input type="text" id="rollValue" name="value" placeholder="e.g. 3 5" autocomplete="off">
+        <button type="submit">Submit Result</button>
+    </form>
+    <button id="skipBtn">Discard Roll</button>
+</section>
+
+<section class="result">
+    <h2>Latest Result</h2>
+    <p id="latestResult">No results yet</p>
+    <img id="latestImage" class="roll-image hidden" alt="Latest dice roll">
+    <button id="resetBtn">Reset</button>
+</section>
+
+<script>
+    const cameraindicator = document.getElementById("camerastatus")
+    const dicetrayindicator = document.getElementById("dicetraystatus")
+
+    function setCameraStatus(isOk){
+        cameraindicator.classList.toggle('status--green', !!isOk)
+        cameraindicator.classList.toggle('status--red', !isOk)
+    }
+
+    function setDiceTrayStatus(isOk){
+        dicetrayindicator.classList.toggle('status--green', !!isOk)
+        dicetrayindicator.classList.toggle('status--red', !isOk)
+    }
+
+    function show(el, show){
+        el.classList.toggle('hidden', !show)
+    }
+
+    let lastAwaiting = false
+
+    function renderAwaiting(data){
+        const awaitingBox = document.getElementById("awaiting")
+        const pendingResultBox = document.getElementById("pendingResultBox")
+        const correctForm = document.getElementById("correctForm")
+        const awaitingMsg = document.getElementById("awaitingMsg")
+        const pendingImage = document.getElementById("pendingImage")
+
+        show(awaitingBox, data.awaiting)
+        if (!data.awaiting) return
+
+        if (data.pending_checked){
+            show(pendingImage, !!data.pending_image)
+            if (data.pending_image){
+                pendingImage.src = data.pending_image + "?t=" + Date.now()
+            }
+            if (data.pending_result !== null){
+                awaitingMsg.textContent = "Roll detected - result ready: " + data.pending_result
+                show(pendingResultBox, true)
+                document.getElementById("pendingResult").textContent = data.pending_result
+            } else {
+                awaitingMsg.textContent = "No dice detected - enter value manually"
+                show(pendingResultBox, false)
+            }
+        } else {
+            awaitingMsg.textContent = "Roll detected - processing..."
+            show(pendingResultBox, false)
+            show(pendingImage, false)
+        }
+        show(correctForm, true)
+        if (!lastAwaiting){
+            document.getElementById("rollValue").value = ""
+        }
+        lastAwaiting = data.awaiting
+    }
+
+    function renderLatest(result){
+        const el = document.getElementById("latestResult")
+        const img = document.getElementById("latestImage")
+        if (result === null){
+            el.textContent = "No results yet"
+            show(img, false)
+        } else {
+            el.textContent = `${result.value}  (${result.source}, ${result.entered_at})`
+            show(img, !!result.image)
+            if (result.image){
+                img.src = result.image + "?t=" + Date.now()
+            }
+        }
+    }
+
+    async function postAction(url, body){
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body || ''
+        })
+        const data = await res.json()
+        if (!data.ok) console.warn(`Action rejected: ${url}`)
+        await pollStatus()
+    }
+
+    async function pollStatus() {
+        try {
+            const res = await fetch('/api/status', { method: 'GET', cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            setCameraStatus(data.camera);
+            setDiceTrayStatus(data.tray_connected);
+            renderAwaiting(data);
+            renderLatest(data.latest_result);
+        } catch (err) {
+            setCameraStatus(false);
+            setDiceTrayStatus(false);
+        }
+    }
+
+    document.getElementById("confirmBtn").addEventListener("click", () => postAction("/api/confirm"))
+
+    document.getElementById("correctForm").addEventListener("submit", (e) => {
+        e.preventDefault()
+        const value = document.getElementById("rollValue").value.trim()
+        if (!value) return
+        postAction("/api/correct", new URLSearchParams({value}))
+    })
+
+    document.getElementById("skipBtn").addEventListener("click", () => postAction("/api/discard"))
+
+    document.getElementById("resetBtn").addEventListener("click", () => postAction("/api/reset"))
+
+    // poll every second and run once on load
+    setInterval(pollStatus, 1000)
+    pollStatus()
+
+</script>
+
+{% endblock %}

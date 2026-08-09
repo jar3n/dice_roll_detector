@@ -1,0 +1,28 @@
+{
+  "folders": [
+    {
+      "name": "client",
+      "path": "client"
+    },
+    {
+      "name": "firmware",
+      "path": "firmware"
+    },
+    {
+      "name": "utilities",
+      "path": "utilities"
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder}/../.venv/bin/python",
+    "pylint.importStrategy": "fromEnvironment",
+    "pylint.interpreter": ["${workspaceFolder}/../.venv/bin/python"],
+    "pylint.path": ["${workspaceFolder}/../.venv/bin/pylint"],
+    "pylint.args": ["--rcfile=${workspaceFolder}/../.pylintrc"]
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python"
+    ]
+  }
+}
