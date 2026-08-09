@@ -256,7 +256,7 @@ class DiceCaptureApp:
     # ---------------------------------------------------------------
     def _update_preview(self):
         try:
-            from PIL import Image, ImageTk
+            from PIL import Image, ImageTk  # pyright: ignore[reportAttributeAccessIssue]
         except ImportError:
             messagebox.showerror(
                 "Missing dependency",
@@ -266,6 +266,7 @@ class DiceCaptureApp:
             sys.exit(1)
 
         try:
+            assert self.cap is not None
             ok, frame = self.cap.read()
             if ok:
                 rgb = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB)
@@ -294,6 +295,7 @@ class DiceCaptureApp:
 
         # Grab a fresh frame at full resolution rather than reusing the
         # (possibly stale) preview frame.
+        assert self.cap is not None
         ok, frame = self.cap.read()
         if not ok:
             messagebox.showerror("Capture failed", "Camera did not return a frame.")

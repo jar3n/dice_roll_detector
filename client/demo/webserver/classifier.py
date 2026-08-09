@@ -17,15 +17,14 @@ That import works because pi/ is put on sys.path by
 dicetraywebserver/tray.py (the parent of the web package).
 """
 
-from cv2 import VideoCapture
-
-
 import time
 from pathlib import Path
-from typing import Literal
-from ultralytics import YOLO
+from typing import Literal, cast
+
 import cv2
 import torch
+from ultralytics import YOLO
+from ultralytics.engine.results import Results
 
 ROOT: Path = Path(__file__).resolve().parent.parent
 
@@ -43,19 +42,19 @@ ROLL_IMAGE_DIR: Path = STATIC_DIR.joinpath("roll_images")
 ROLL_IMAGE_PATH: Path = ROLL_IMAGE_DIR.joinpath("latest.jpg")
 ROLL_IMAGE_URL = "/static/roll_images/latest.jpg"
 
-_model: YOLO | None = None   # pyright: ignore[reportRedeclaration, reportAssignmentType]
+_model: YOLO | Literal[False] | None = None
 
-def _load_model() -> YOLO | Literal[True] | None:
+def _load_model() -> YOLO | None:
     """Lazily load the YOLO detection model once per process."""
     global _model
     if _model is None:
         try:
             torch.set_num_threads(TORCH_THREADS)
-            _model: YOLO = YOLO(MODEL_PATH)
+            _model = YOLO(MODEL_PATH)
         except Exception as exc:
             print(f"classifier: could not load model {MODEL_PATH!r}: {exc}")
             _model = False
-    return _model or None
+    return None if _model is False else _model
 
 
 def _capture_frame():
@@ -70,7 +69,7 @@ def _capture_frame():
         numpy.ndarray (BGR) or None if the camera can't be opened.
     """
 
-    cap: VideoCapture = cv2.VideoCapture(CAMERA_INDEX)
+    cap = cv2.VideoCapture(CAMERA_INDEX)
     if not cap.isOpened():
         print(f"classifier: could not open camera index {CAMERA_INDEX}")
         return None
@@ -132,8 +131,10 @@ def classify_roll(data):
     detections = []
     annotated = frame
     if model is not None:
-        results = model.predict(frame, verbose=False)
+        results: list[Results] = [cast(Results, r) for r in model.predict(frame, verbose=False)]
         for r in results:
+            if r.boxes is None:
+                continue
             for box in r.boxes:
                 detections.append({
                     "class": int(box.cls[0]),

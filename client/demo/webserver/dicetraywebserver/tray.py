@@ -242,7 +242,7 @@ def get_tray_state(app=None):
             if _tray_state is None:
                 if app is None:
                     from flask import current_app
-                    app = current_app._get_current_object()
+                    app = current_app
 
                 tray = TrayState(
                     dev=app.config.get("SERIAL_PORT", "/dev/ttyACM0"),
