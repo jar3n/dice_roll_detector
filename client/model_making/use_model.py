@@ -1,23 +1,47 @@
-import sys
+from argparse import Namespace
+
+
+import os
+import argparse
 from typing import cast
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
-if len(sys.argv) != 2:
-    print(f"usage: {sys.argv[0]} /path/to/dice_image.jpg")
-    sys.exit(1)
+def parse_args() -> Namespace:
+    parser = argparse.ArgumentParser()
 
-model = YOLO("model_making/yolo26_dice.pt")
+    parser.add_argument("imagefile")
+    parser.add_argument("--ncnn", action='store_true')
 
-results: list[Results] = [cast(Results, r) for r in model.predict(sys.argv[1])]
 
-annotated = results[0].plot()
-annotated_rgb = annotated[..., ::-1]
+    args = parser.parse_args()
 
-plt.imshow(annotated_rgb)
-plt.axis("off")
-plt.title("YOLO26 dice detection")
-plt.show()
+    return args
+
+args = parse_args()
+
+if args.ncnn:
+    model = YOLO("yolo26_dice_ncnn_model")
+else:
+    model = YOLO("yolo26_dice.pt")
+
+image = Path(args.imagefile)
+
+if not os.path.exists(image.resolve().absolute()):
+    print(f"Image file {image.resolve().absolute()} does not exist")
+
+
+else:
+    results: list[Results] = [cast(Results, r) for r in model.predict(args.imagefile)]
+
+    annotated = results[0].plot()
+    annotated_rgb = annotated[..., ::-1]
+
+    plt.imshow(annotated_rgb)
+    plt.axis("off")
+    plt.title("YOLO26 dice detection")
+    plt.show()
