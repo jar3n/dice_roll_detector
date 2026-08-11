@@ -7,4 +7,4 @@ client/model_making/cv_work/*
 yolo26n.pt
 labels.cache
 client/demo/dicetraywebserver/static/roll_images/
-
+.venvhailo/
