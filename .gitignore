@@ -8,3 +8,5 @@ yolo26n.pt
 labels.cache
 client/demo/dicetraywebserver/static/roll_images/
 .venvhailo/
+datasets/*
+*.log
