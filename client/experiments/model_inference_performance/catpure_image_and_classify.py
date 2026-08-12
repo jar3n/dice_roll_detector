@@ -127,21 +127,25 @@ def _save_roll_image(image: MatLike) -> bool:
         return False
 
 
-def _predict(model: YOLO, image) -> tuple[str | None, float | None]:
+def _predict(model: YOLO, image) -> tuple[str | None, float | None, float | None]:
     """Run the model on the captured frame and return the top prediction.
 
     Returns:
-        (class_name, confidence) for the highest-confidence detection,
-        or (None, None) if nothing was detected.
+        (class_name, confidence, inference_ms) for the highest-confidence
+        detection, or (None, None, inference_ms) if nothing was detected.
+        inference_ms is the wall-clock time of the inference call.
     """
+    start = time.perf_counter()
     results: Iterator[Results | Tensor] | list[Results] | list[Tensor] = model(image, verbose=False)  # pyright: ignore[reportUnknownArgumentType]
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
+
     if not results:
-        return None, None
+        return None, None, elapsed_ms
 
     result = results[0]  # pyright: ignore[reportIndexIssue]
     boxes = getattr(result, "boxes", None)  # pyright: ignore[reportUnknownArgumentType]
     if boxes is None or len(boxes) == 0:  # pyright: ignore[reportAny]
-        return None, None
+        return None, None, elapsed_ms
 
     # pick the highest-confidence detection
     confs = boxes.conf.tolist()  # pyright: ignore[reportAny]
@@ -149,7 +153,7 @@ def _predict(model: YOLO, image) -> tuple[str | None, float | None]:
     cls_id = int(boxes.cls[best_idx].item())  # pyright: ignore[reportAny]
     conf = float(confs[best_idx])  # pyright: ignore[reportAny]
     class_name = model.names.get(cls_id, str(cls_id))
-    return class_name, conf
+    return class_name, conf, elapsed_ms
 
 
 def _show_image_for_review(image: MatLike, window_name: str = "Captured Roll"):
@@ -178,6 +182,7 @@ def _csv_header() -> list[str]:
             f"{model_type}_predicted",
             f"{model_type}_confidence",
             f"{model_type}_correct",
+            f"{model_type}_inference_ms",
         ]
     return header
 
@@ -185,7 +190,7 @@ def _csv_header() -> list[str]:
 def _append_prediction_to_csv(
     image_path: Path,
     actual_value: str,
-    predictions: dict[str, tuple[str | None, float | None]],
+    predictions: dict[str, tuple[str | None, float | None, float | None]],
 ):
     """Append one row per captured image to the CSV log, with each
     model's prediction/confidence/correctness in its own set of columns.
@@ -207,10 +212,12 @@ def _append_prediction_to_csv(
             actual_value,
         ]
         for model_type in MODEL_FILES:
-            predicted_value, confidence = predictions.get(model_type, (None, None))
+            predicted_value, confidence, inference_ms = predictions.get(
+                model_type, (None, None, None)
+            )
             if model_type not in predictions:
                 # model wasn't run this capture at all
-                row += ["", "", ""]
+                row += ["", "", "", ""]
                 continue
             correct = (
                 str(predicted_value) == str(actual_value)
@@ -221,6 +228,7 @@ def _append_prediction_to_csv(
                 predicted_value if predicted_value is not None else "",
                 f"{confidence:.4f}" if confidence is not None else "",
                 correct,
+                f"{inference_ms:.1f}" if inference_ms is not None else "",
             ]
         writer.writerow(row)
 
@@ -236,23 +244,26 @@ def run(model_types: list[str]):
     _save_roll_image(frame)  # pyright: ignore[reportUnusedCallResult]
 
     # run every requested model against the same captured frame
-    predictions: dict[str, tuple[str | None, float | None]] = {}
+    predictions: dict[str, tuple[str | None, float | None, float | None]] = {}
     for model_type in model_types:
         model = _load_model(model_type, MODEL_FILES[model_type])
         if model is None:
             print(f"classifier: skipping '{model_type}', model failed to load")
-            predictions[model_type] = (None, None)
+            predictions[model_type] = (None, None, None)
             continue
 
-        predicted_value, confidence = _predict(model, frame)  # pyright: ignore[reportArgumentType]
-        predictions[model_type] = (predicted_value, confidence)
+        predicted_value, confidence, inference_ms = _predict(model, frame)  # pyright: ignore[reportArgumentType]
+        predictions[model_type] = (predicted_value, confidence, inference_ms)
         if predicted_value is not None:
             print(
                 f"classifier: [{model_type}] predicted '{predicted_value}' "  # pyright: ignore[reportImplicitStringConcatenation]
-                f"(confidence {confidence:.2f})"
+                f"(confidence {confidence:.2f}, inference {inference_ms:.1f} ms)"  # pyright: ignore[reportImplicitStringConcatenation]
             )
         else:
-            print(f"classifier: [{model_type}] no detection found in frame")
+            print(
+                f"classifier: [{model_type}] no detection found in frame "  # pyright: ignore[reportImplicitStringConcatenation]
+                f"(inference {inference_ms:.1f} ms)"  # pyright: ignore[reportImplicitStringConcatenation]
+            )
 
     # show the operator the frame once and ask for the ground truth once,
     # it applies to every model's prediction for this capture
