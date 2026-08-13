@@ -83,7 +83,8 @@ class SerialDiceTray(threading.Thread):
             self.serial = serial.Serial(port,
                                         baudrate=baud,
                                         timeout=timeout)
-        except serial.SerialException:
+        except serial.SerialException as exc:
+            print(f"picoSerial: could not open serial port {port}: {exc}")
             self.serial = None
 
         with self.lock:
