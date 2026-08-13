@@ -177,8 +177,9 @@ def _fit_to_screen(image: MatLike, max_width: int, max_height: int) -> MatLike:
 def _show_image_for_review(image: MatLike, window_name: str = "Captured Roll"):
     """Display the captured frame so the operator can read the real value.
 
-    The frame is resized to fit on screen so it is never larger than
-    the display.  Blocks until any key is pressed, then closes the window.
+    The frame is scaled to half the screen width and height and the
+    window is centered on the display.  Blocks until any key is pressed,
+    then closes the window.
     """
     try:
         import tkinter
@@ -190,8 +191,17 @@ def _show_image_for_review(image: MatLike, window_name: str = "Captured Roll"):
         # fall back to a sane default if the screen size can't be queried
         screen_w, screen_h = 1920, 1080
 
-    display_image = _fit_to_screen(image, screen_w, screen_h)
+    display_image = _fit_to_screen(image, screen_w // 2, screen_h // 2)
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)  # pyright: ignore[reportUnusedCallResult]
+    cv2.resizeWindow(  # pyright: ignore[reportUnusedCallResult]
+        window_name, display_image.shape[1], display_image.shape[0]
+    )
     cv2.imshow(window_name, display_image)
+    cv2.moveWindow(  # pyright: ignore[reportUnusedCallResult]
+        window_name,
+        (screen_w - display_image.shape[1]) // 2,
+        (screen_h - display_image.shape[0]) // 2,
+    )
     cv2.waitKey(1)  # let the window actually paint before we ask for input  # pyright: ignore[reportUnusedCallResult]
     return window_name
 
