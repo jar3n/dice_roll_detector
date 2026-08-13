@@ -103,7 +103,7 @@ class SerialDiceTray(threading.Thread):
             if self.data['in'] != "":
                 self.data['in'] = ""
 
-        return data  # pyright: ignore[reportAny]
+        return data if data else None  # pyright: ignore[reportAny]
 
 
     def read(self) -> None:
@@ -205,12 +205,14 @@ def parse_args() -> Namespace:
 def process_pico_data_helper(pico_data:dict[str, str]) -> bool:
     """Helper function to process the data"""
 
-    try:
-        if pico_data['msg'] == "classify":
-            return True
-    except KeyError:
+    if not isinstance(pico_data, dict):
         print("Got malformed message")
+        return False
 
+    if pico_data.get("msg") == "classify":
+        return True
+
+    print("Got malformed message")
     return False
 
 
