@@ -159,12 +159,39 @@ def _predict(model: YOLO, image) -> tuple[str | None, float | None, float | None
     return class_name, conf, elapsed_ms
 
 
+def _fit_to_screen(image: MatLike, max_width: int, max_height: int) -> MatLike:
+    """Scale the image down to fit inside the given dimensions, keeping
+    the aspect ratio.  Images smaller than the target are left untouched.
+    """
+    height, width = image.shape[:2]
+    scale = min(max_width / width, max_height / height, 1.0)
+    if scale >= 1.0:
+        return image
+    return cv2.resize(
+        image,
+        (int(width * scale), int(height * scale)),
+        interpolation=cv2.INTER_AREA,
+    )
+
+
 def _show_image_for_review(image: MatLike, window_name: str = "Captured Roll"):
     """Display the captured frame so the operator can read the real value.
 
-    Blocks until any key is pressed, then closes the window.
+    The frame is resized to fit on screen so it is never larger than
+    the display.  Blocks until any key is pressed, then closes the window.
     """
-    cv2.imshow(window_name, image)
+    try:
+        import tkinter
+
+        tk = tkinter.Tk()
+        screen_w, screen_h = tk.winfo_screenwidth(), tk.winfo_screenheight()
+        tk.destroy()
+    except Exception:
+        # fall back to a sane default if the screen size can't be queried
+        screen_w, screen_h = 1920, 1080
+
+    display_image = _fit_to_screen(image, screen_w, screen_h)
+    cv2.imshow(window_name, display_image)
     cv2.waitKey(1)  # let the window actually paint before we ask for input  # pyright: ignore[reportUnusedCallResult]
     return window_name
 
