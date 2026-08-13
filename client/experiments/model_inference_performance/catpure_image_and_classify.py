@@ -39,7 +39,7 @@ from ultralytics import YOLO
 ROOT: Path = Path(__file__).resolve().parent.parent.parent.parent.parent
 
 ROLL_IMAGE_DIR: Path = ROOT.joinpath("data/experiments/model_inference_performance")
-ROLL_IMAGE_PATH: Path = lambda a:int, x:int: ROLL_IMAGE_DIR.joinpath(f"classify{a}real{x}.jpg")
+ROLL_IMAGE_PATH: Path = lambda a, x : ROLL_IMAGE_DIR.joinpath(f"classify{a}real{x}.jpg")
 PREDICTIONS_CSV: Path = ROLL_IMAGE_DIR.joinpath("predictions.csv")
 MODEL_PATH: Path = ROOT.joinpath("dice_roll_detector/code/client/model_making")
 
