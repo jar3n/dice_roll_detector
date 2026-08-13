@@ -53,7 +53,7 @@ class SerialDiceTray(threading.Thread):
         for the pico and communicate with it
     """
 
-    def __init__(self, port: str, baud: int, timeout: int = 1) -> None:
+    def __init__(self, port: str, baud: int, timeout: int = 1, debug: bool = False) -> None:
         threading.Thread.__init__(self)
         self.connected: bool = False
         self.serial_settings: SerialSettings = SerialSettings(port, baud, timeout)
@@ -64,6 +64,7 @@ class SerialDiceTray(threading.Thread):
             "out":""
         }
         self.running: bool = False
+        self.debug: bool = debug
 
     def initiate_background_process(self) -> None:
         """start thread in the background"""
@@ -123,7 +124,8 @@ class SerialDiceTray(threading.Thread):
 
         try:
             data:Any = json.loads(s=line)  # pyright: ignore[reportExplicitAny, reportAny]
-            if isinstance(data, dict) and data.get("msg") == "classify":
+            if (self.debug
+                    and isinstance(data, dict) and data.get("msg") == "classify"):
                 print(f"picoSerial: dice roll detected over serial: {data}")
         except ValueError:
             # failed to decode the line
