@@ -279,5 +279,4 @@ def run(model_types: list[str]):
 
 
 if __name__ == "__main__":
-    print(ROOT)
-    # run(sorted(MODEL_FILES.keys()))
+    run(sorted(MODEL_FILES.keys()))
