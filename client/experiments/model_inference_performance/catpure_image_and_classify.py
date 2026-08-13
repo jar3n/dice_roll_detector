@@ -14,6 +14,7 @@
     @author James Englander
 """
 
+from sympy.assumptions.assume import Str
 from ultralytics.engine.results import Results
 
 from torch._tensor import Tensor
@@ -29,6 +30,7 @@ import csv
 import time
 from datetime import datetime
 from pathlib import Path
+from datetime import datetime
 
 import cv2
 import torch
@@ -37,7 +39,7 @@ from ultralytics import YOLO
 ROOT: Path = Path(__file__).resolve().parent.parent.parent.parent.parent
 
 ROLL_IMAGE_DIR: Path = ROOT.joinpath("data/experiments/model_inference_performance")
-ROLL_IMAGE_PATH: Path = ROLL_IMAGE_DIR.joinpath("latest.jpg")
+ROLL_IMAGE_PATH: Path = lambda a:int, x:int: ROLL_IMAGE_DIR.joinpath(f"classify{a}real{x}.jpg")
 PREDICTIONS_CSV: Path = ROLL_IMAGE_DIR.joinpath("predictions.csv")
 MODEL_PATH: Path = ROOT.joinpath("dice_roll_detector/code/client/model_making")
 
@@ -106,7 +108,7 @@ def _capture_frame():
         cap.release()
 
 
-def _save_roll_image(image: MatLike) -> bool:
+def _save_roll_image(image: MatLike, time:datetime, real_val:str) -> bool:
     """Save the captured frame (with annotations if any) where the
     web app can serve it.  Failures are non-fatal: classification
     still proceeds without a stored image.
@@ -116,11 +118,12 @@ def _save_roll_image(image: MatLike) -> bool:
     """
     try:
         ROLL_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
-        ok = cv2.imwrite(str(ROLL_IMAGE_PATH), image)
+        image_file = ROLL_IMAGE_PATH(time, real_val)
+        ok = cv2.imwrite(str(image_file), image)
         if ok:
-            print(f"classifier: saved roll image to {ROLL_IMAGE_PATH}")
+            print(f"classifier: saved roll image to {image_file}")
         else:
-            print(f"classifier: could not write roll image to {ROLL_IMAGE_PATH}")
+            print(f"classifier: could not write roll image to {image_file}")
         return ok
     except Exception as exc:
         print(f"classifier: could not save roll image: {exc}")
@@ -241,8 +244,6 @@ def run(model_types: list[str]):
         print("classifier: aborting, no frame captured")
         return
 
-    _save_roll_image(frame)  # pyright: ignore[reportUnusedCallResult]
-
     # run every requested model against the same captured frame
     predictions: dict[str, tuple[str | None, float | None, float | None]] = {}
     for model_type in model_types:
@@ -270,6 +271,8 @@ def run(model_types: list[str]):
     window_name = _show_image_for_review(frame)
     actual_value = _prompt_for_actual_value()
     cv2.destroyWindow(window_name)
+
+    _save_roll_image(frame, datetime.now(), actual_value)  # pyright: ignore[reportUnusedCallResult]
 
     _append_prediction_to_csv(
         image_path=ROLL_IMAGE_PATH,
