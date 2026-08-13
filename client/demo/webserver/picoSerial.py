@@ -123,6 +123,8 @@ class SerialDiceTray(threading.Thread):
 
         try:
             data:Any = json.loads(s=line)  # pyright: ignore[reportExplicitAny, reportAny]
+            if isinstance(data, dict) and data.get("msg") == "classify":
+                print(f"picoSerial: dice roll detected over serial: {data}")
         except ValueError:
             # failed to decode the line
             # json so its a bad message

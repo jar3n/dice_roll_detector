@@ -82,6 +82,8 @@ class TrayState(threading.Thread):
         {"value": str or None, "image": str or None} so it can also
         hand back a captured image for the dashboard to display.
         """
+        print(f"tray: dice roll detected at {now_iso()}")
+        print(f"tray: classify message -> {data}")
         with self.lock:
             self.pending_roll = data
             self.awaiting = True
@@ -102,6 +104,7 @@ class TrayState(threading.Thread):
                     self.pending_result = None
                     self.pending_image = None
                 self.pending_checked = True
+                print(f"tray: classifier result -> {self.pending_result}")
                 if self.pending_image:
                     print(f"tray: roll image available at {self.pending_image}")
 
