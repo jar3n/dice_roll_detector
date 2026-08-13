@@ -41,7 +41,7 @@ ROOT: Path = Path(__file__).resolve().parent.parent.parent.parent.parent
 ROLL_IMAGE_DIR: Path = ROOT.joinpath("data/experiments/model_inference_performance")
 ROLL_IMAGE_PATH: Path = lambda a, x : ROLL_IMAGE_DIR.joinpath(f"classify{a}real{x}.jpg")
 PREDICTIONS_CSV: Path = ROLL_IMAGE_DIR.joinpath("predictions.csv")
-MODEL_PATH: Path = ROOT.joinpath("dice_roll_detector/code/client/model_making")
+MODEL_PATH: Path = ROOT.joinpath("dice_roll_detector/client/model_making")
 
 # model folders and files
 PT_MODEL_FILE: Path = MODEL_PATH.joinpath("yolo26_dice.pt")
