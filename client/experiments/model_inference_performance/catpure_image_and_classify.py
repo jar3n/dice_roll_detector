@@ -160,17 +160,17 @@ def _predict(model: YOLO, image) -> tuple[str | None, float | None, float | None
 
 
 def _fit_to_screen(image: MatLike, max_width: int, max_height: int) -> MatLike:
-    """Scale the image down to fit inside the given dimensions, keeping
-    the aspect ratio.  Images smaller than the target are left untouched.
+    """Scale the image to fit inside the given dimensions, keeping the
+    aspect ratio.  Small images are scaled up and large ones scaled down
+    so the frame always fills as much of the screen as possible.
     """
     height, width = image.shape[:2]
-    scale = min(max_width / width, max_height / height, 1.0)
-    if scale >= 1.0:
-        return image
+    scale = min(max_width / width, max_height / height)
+    interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
     return cv2.resize(
         image,
         (int(width * scale), int(height * scale)),
-        interpolation=cv2.INTER_AREA,
+        interpolation=interpolation,
     )
 
 
