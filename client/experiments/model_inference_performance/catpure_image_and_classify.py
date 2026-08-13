@@ -255,8 +255,8 @@ def _append_prediction_to_csv(
                 else False
             )
             row += [
-                predicted_value if predicted_value is not None else "",
-                f"{confidence:.4f}" if confidence is not None else "",
+                predicted_value if predicted_value is not None else "None",
+                f"{confidence:.4f}" if confidence is not None else "None",
                 correct,
                 f"{inference_ms:.1f}" if inference_ms is not None else "",
             ]
