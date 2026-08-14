@@ -16,6 +16,7 @@ The working demo code utilizes the following files:
     - the code inside the client demo folder
     - run the code using flask in the client/demo/webserver folder
     - command `flask --app dicetraywebserver run --debug`
+    - to see the webserver, on the pi open the browser and type into the URL bar: 127.0.0.1:5000
  - firmware:
     - the firmware is in the main.py file because that is the file that micropython looks for when flashing the code and rebooting. This code is a copy of the code in the pico_tray_fw.py file which is where the development of the firmware occcurs.
     - to run the firmware use thonny or another tool to copy the main.py file from the firmware folder into the pico
