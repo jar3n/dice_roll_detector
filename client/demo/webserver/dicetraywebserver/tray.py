@@ -50,10 +50,11 @@ class TrayState(threading.Thread):
 
     POLL_INTERVAL = 0.2
 
-    def __init__(self, dev, baud=115200, tray=None, classify_hook=None):
+    def __init__(self, dev, baud=115200, tray=None, classify_hook=None, debug: bool = False):
         threading.Thread.__init__(self, daemon=True)
-        self.tray = tray if tray is not None else SerialDiceTray(dev, baud)
+        self.tray = tray if tray is not None else SerialDiceTray(dev, baud, debug=debug)
         self.classify_hook = classify_hook
+        self.debug: bool = debug
         self.running = False
         self.lock = threading.Lock()
         self.awaiting = False
@@ -82,6 +83,9 @@ class TrayState(threading.Thread):
         {"value": str or None, "image": str or None} so it can also
         hand back a captured image for the dashboard to display.
         """
+        if self.debug:
+            print(f"tray: dice roll detected at {now_iso()}")
+            print(f"tray: classify message -> {data}")
         with self.lock:
             self.pending_roll = data
             self.awaiting = True
@@ -102,7 +106,9 @@ class TrayState(threading.Thread):
                     self.pending_result = None
                     self.pending_image = None
                 self.pending_checked = True
-                if self.pending_image:
+                if self.debug:
+                    print(f"tray: classifier result -> {self.pending_result}")
+                if self.pending_image and self.debug:
                     print(f"tray: roll image available at {self.pending_image}")
 
     def run(self):
@@ -248,6 +254,7 @@ def get_tray_state(app=None):
                     dev=app.config.get("SERIAL_PORT", "/dev/ttyACM0"),
                     baud=app.config.get("SERIAL_BAUD", 115200),
                     classify_hook=app.config.get("CLASSIFY_HOOK"),
+                    debug=app.debug,
                 )
                 tray.initiate_background_process()
                 _tray_state = tray

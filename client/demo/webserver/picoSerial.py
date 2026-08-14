@@ -53,7 +53,7 @@ class SerialDiceTray(threading.Thread):
         for the pico and communicate with it
     """
 
-    def __init__(self, port: str, baud: int, timeout: int = 1) -> None:
+    def __init__(self, port: str, baud: int, timeout: int = 1, debug: bool = False) -> None:
         threading.Thread.__init__(self)
         self.connected: bool = False
         self.serial_settings: SerialSettings = SerialSettings(port, baud, timeout)
@@ -64,6 +64,7 @@ class SerialDiceTray(threading.Thread):
             "out":""
         }
         self.running: bool = False
+        self.debug: bool = debug
 
     def initiate_background_process(self) -> None:
         """start thread in the background"""
@@ -82,7 +83,8 @@ class SerialDiceTray(threading.Thread):
             self.serial = serial.Serial(port,
                                         baudrate=baud,
                                         timeout=timeout)
-        except serial.SerialException:
+        except serial.SerialException as exc:
+            print(f"picoSerial: could not open serial port {port}: {exc}")
             self.serial = None
 
         with self.lock:
@@ -101,7 +103,7 @@ class SerialDiceTray(threading.Thread):
             if self.data['in'] != "":
                 self.data['in'] = ""
 
-        return data  # pyright: ignore[reportAny]
+        return data if data else None  # pyright: ignore[reportAny]
 
 
     def read(self) -> None:
@@ -123,6 +125,9 @@ class SerialDiceTray(threading.Thread):
 
         try:
             data:Any = json.loads(s=line)  # pyright: ignore[reportExplicitAny, reportAny]
+            if (self.debug
+                    and isinstance(data, dict) and data.get("msg") == "classify"):
+                print(f"picoSerial: dice roll detected over serial: {data}")
         except ValueError:
             # failed to decode the line
             # json so its a bad message
@@ -200,12 +205,14 @@ def parse_args() -> Namespace:
 def process_pico_data_helper(pico_data:dict[str, str]) -> bool:
     """Helper function to process the data"""
 
-    try:
-        if pico_data['msg'] == "classify":
-            return True
-    except KeyError:
+    if not isinstance(pico_data, dict):
         print("Got malformed message")
+        return False
 
+    if pico_data.get("msg") == "classify":
+        return True
+
+    print("Got malformed message")
     return False
 
 

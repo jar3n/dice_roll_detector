@@ -26,7 +26,7 @@ import torch
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
-ROOT: Path = Path(__file__).resolve().parent.parent
+ROOT: Path = Path(__file__).resolve().parent.parent.parent
 
 CAMERA_INDEX = 0
 MODEL_PATH: Path = ROOT.joinpath("model_making/yolo26_dice.pt")
@@ -37,7 +37,7 @@ WARMUP_FRAMES = 5  # frames to discard so auto-exposure/gain settles before capt
 TORCH_THREADS = 2
 
 # where the captured roll image is written so the web app can serve it
-STATIC_DIR: Path = ROOT.joinpath("pi/dicetraywebserver/static")
+STATIC_DIR: Path = ROOT.joinpath("demo/webserver/dicetraywebserver/static")
 ROLL_IMAGE_DIR: Path = STATIC_DIR.joinpath("roll_images")
 ROLL_IMAGE_PATH: Path = ROLL_IMAGE_DIR.joinpath("latest.jpg")
 ROLL_IMAGE_URL = "/static/roll_images/latest.jpg"

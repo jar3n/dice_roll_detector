@@ -231,7 +231,7 @@ async def comm_with_client():
     
         # send the request
         if not request_sent:
-            print(ujson.dumps(classify_request).encode("utf-8"))
+            print(ujson.dumps(classify_request))
             request_sent = True
         
         line = await async_readline()
@@ -281,7 +281,6 @@ except KeyboardInterrupt:
     all_off(red_light, yellow_light, green_light)
             
     
-
 
 
 

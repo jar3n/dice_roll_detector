@@ -2,26 +2,45 @@
 """
 Client for capturing vibration noise-floor data from the firmware.
 
-- Prompts for serial port/baud, output CSV filename, and EMA alphas
-- Waits for the user to press Enter, then sends {"cmd":"start","timestamp":...}
-- Streams and parses JSON vibration samples ({"raw":...,"timestamp":...})
-  in a background thread while collection is running
-- Waits for the user to press Enter again, then sends {"cmd":"stop"}
-- Computes an EMA of the raw signal for each requested alpha
-- Writes timestamp, raw, and per-alpha EMA columns to a CSV file
+- Prompts for serial port/baud and output CSV filename
+- Waits for the user to press Enter, then sends "start" over serial
+- Streams and parses JSON vibration samples printed by the firmware
+  (main.py / test_vibe_noise_floor.py) in a background thread while
+  collection runs.  The firmware prints {"vibe":..., "filtered05":...,
+  "filtered1":..., "filtered2":..., "filtered3":...} with the EMA filters
+  already computed on-device, so the client just records them.
+- Timestamps come from the firmware, offset so the first sample is 0
+  (falls back to the client clock if the firmware omits a timestamp)
+- Automatically stops after COLLECT_DURATION (3 minutes), or on Enter
+- Writes timestamp, raw, and per-alpha filtered columns to a CSV file
 
 @author: James Englander
 """
 
-import json
-import time
+import ast
 import csv
+import json
 import threading
+import time
 from pathlib import Path
 
 import serial
 
-DATA_DIR = Path(__file__).resolve().parents[4] / "data" / "datafiles"
+DATA_DIR = Path(__file__).resolve().parents[4] / "data" / "experiments" / "vibe_noise_floor"
+
+# Filter columns produced by the firmware (test_vibe_noise_floor.py),
+# keyed by the EMA alpha each one applies.
+FILTER_COLUMNS: dict[float, str] = {
+    0.05: "filtered05",
+    0.1: "filtered1",
+    0.2: "filtered2",
+    0.3: "filtered3",
+}
+
+alpha_list = [0.05, 0.1, 0.2, 0.3]
+
+# How long to collect data (seconds) before stopping automatically.
+COLLECT_DURATION = 180
 
 
 def main():
@@ -31,22 +50,6 @@ def main():
     default_out = str(DATA_DIR / "data.csv")
     out_path = input(f"CSV output path (default: {default_out}): ").strip() or default_out
 
-    alpha_in = input(
-        "EMA alphas (comma-separated, e.g. 0.05,0.1,0.2). "
-        "Default: 0.05,0.1,0.2,0.3: "
-    ).strip()
-    if not alpha_in:
-        alpha_list = [0.05, 0.1, 0.2, 0.3]
-    else:
-        alpha_list = [float(s) for s in alpha_in.split(",")]
-
-    for a in alpha_list:
-        if a <= 0 or a > 1:
-            raise ValueError("All alpha values must be in (0, 1].")
-
-    alpha_list = sorted(alpha_list)
-    print(f"EMA enabled for alphas={alpha_list}")
-
     print("\nConnecting...")
     ser = serial.Serial(port, baudrate=baud, timeout=0.1)
 
@@ -55,31 +58,45 @@ def main():
     ser.reset_input_buffer()
 
     rows = []
-    emas: dict[float, float | None] = {a: None for a in alpha_list}
     stop_event = threading.Event()
+    first_ts: int | None = None
 
     def process_line(raw):
+        nonlocal first_ts
         raw = raw.strip()
         if not raw:
             return
 
         try:
             obj = json.loads(raw.decode())
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
+            # fall back to the old firmware's Python-dict repr
+            try:
+                obj = ast.literal_eval(raw.decode())
+            except (SyntaxError, ValueError):
+                print(f"[DEBUG unparsed line] {raw!r}")
+                return
+        if not isinstance(obj, dict):
+            print(f"[DEBUG not a dict] {obj!r}")
             return
 
-        if "raw" not in obj or "timestamp" not in obj:
+        vibe = obj.get("vibe")
+        if vibe is None:
+            print(f"[DEBUG no 'vibe' key] {obj!r}")
             return
 
-        x = obj["raw"]
-        ts = obj["timestamp"]
+        # Use the firmware's timestamp, offset so the first sample is 0.
+        # If the firmware omits a timestamp, fall back to the client clock.
+        fw_ts = obj.get("timestamp")
+        if fw_ts is None:
+            fw_ts = int(time.time() * 1000)
+        if first_ts is None:
+            first_ts = fw_ts
+        ts = fw_ts - first_ts
 
-        out_row = {"timestamp": ts, "raw": x}
+        out_row = {"timestamp": ts, "raw": vibe}
         for a in alpha_list:
-            prev = emas[a]
-            ema = float(x) if prev is None else a * x + (1.0 - a) * prev
-            emas[a] = ema
-            out_row[f"ema_{a}"] = ema
+            out_row[FILTER_COLUMNS[a]] = obj.get(FILTER_COLUMNS[a])
 
         rows.append(out_row)
 
@@ -111,21 +128,28 @@ def main():
     # that arrive immediately after the firmware begins collecting.
     reader_thread.start()
 
-    start_ts = int(time.time() * 1000)  # ms epoch
-    cmd = {"cmd": "start", "timestamp": start_ts}
-    ser.write((json.dumps(cmd) + "\n").encode())
-    print(f"Collecting... writing to {out_path}")
+    ser.write(("start\n").encode())
+    print(f"Collecting for {COLLECT_DURATION}s... writing to {out_path}")
 
-    input("Press Enter to stop data collection...")
+    early_stop = threading.Event()
 
-    stop_cmd = {"cmd": "stop"}
-    ser.write((json.dumps(stop_cmd) + "\n").encode())
+    def wait_for_stop_key():
+        input("Press Enter to stop early...")
+        early_stop.set()
+
+    threading.Thread(target=wait_for_stop_key, daemon=True).start()
+
+    started_at = time.monotonic()
+    while not early_stop.is_set() and time.monotonic() - started_at < COLLECT_DURATION:
+        time.sleep(0.2)
+
+    ser.write(("stop\n").encode())
     print("Stopping...")
 
     stop_event.set()
     reader_thread.join(timeout=2)
 
-    fieldnames = ["timestamp", "raw"] + [f"ema_{a}" for a in alpha_list]
+    fieldnames = ["timestamp", "raw"] + [FILTER_COLUMNS[a] for a in alpha_list]
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
